@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
 import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
+import { useAuth } from "@/lib/user-context";
 import {
   connectAccount,
   createAccount,
@@ -15,9 +16,13 @@ import {
   type PlatformAccountUpdateInput,
   type PlatformInfo,
 } from "@/lib/accounts";
+import { listIntegrations, type Integration, type IntegrationId } from "@/lib/integrations";
+import { INTEGRATION_HELP } from "@/lib/integration-help";
 import { PLATFORM_LABELS, type Channel, type PlatformValue } from "@/lib/channels";
 import { useChannelContext } from "@/lib/channel-context";
 import { AccountForm } from "@/components/accounts/AccountForm";
+import { IntegrationKeysDialog } from "@/components/accounts/IntegrationKeysDialog";
+import { PlatformHelpPopover } from "@/components/accounts/PlatformHelpPopover";
 import { ChannelColorDot } from "@/components/channels/ChannelPicker";
 import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -32,6 +37,8 @@ function channelName(channels: Channel[], id: string | null): string {
 
 export function AccountsManager() {
   const { channels } = useChannelContext();
+  const { user } = useAuth();
+  const isAdmin = Boolean(user?.is_admin);
   const { showToast } = useToast();
   const showOwner = useShowOwnerColumn();
   const ownerLabel = useOwnerLabel();
@@ -43,6 +50,12 @@ export function AccountsManager() {
   const [accounts, setAccounts] = useState<PlatformAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Admin-only: integration keys (YouTube/TikTok/.../Anthropic credentials).
+  // Non-admins get 403 from this endpoint, so it's never fetched for them.
+  const [integrations, setIntegrations] = useState<Record<string, Integration>>({});
+  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+  const [configureTarget, setConfigureTarget] = useState<IntegrationId | null>(null);
 
   const [addManualPlatform, setAddManualPlatform] = useState<PlatformValue | null>(null);
   const [manualDisplayName, setManualDisplayName] = useState("");
@@ -82,6 +95,37 @@ export function AccountsManager() {
     load(controller.signal);
     return () => controller.abort();
   }, [load]);
+
+  const loadIntegrations = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!isAdmin) {
+        setIntegrations({});
+        return;
+      }
+      setLoadingIntegrations(true);
+      try {
+        const data = await listIntegrations(signal);
+        setIntegrations(Object.fromEntries(data.map((item) => [item.id, item])));
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Best-effort: the "Configurar chaves" buttons just stay disabled.
+      } finally {
+        setLoadingIntegrations(false);
+      }
+    },
+    [isAdmin],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadIntegrations(controller.signal);
+    return () => controller.abort();
+  }, [loadIntegrations]);
+
+  function handleIntegrationSaved() {
+    loadIntegrations();
+    load();
+  }
 
   // Handle the OAuth callback redirect (?connected=<platform> / ?error=...).
   useEffect(() => {
@@ -192,8 +236,14 @@ export function AccountsManager() {
               key={platform.id}
               className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950"
             >
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-900 dark:text-slate-50">{platform.name}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 font-medium text-slate-900 dark:text-slate-50">
+                  {platform.name}
+                  <PlatformHelpPopover
+                    help={INTEGRATION_HELP[platform.id]}
+                    redirectUri={integrations[platform.id]?.redirect_uri ?? null}
+                  />
+                </span>
                 {platform.supports_oauth ? (
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
@@ -211,7 +261,12 @@ export function AccountsManager() {
                 )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">{platform.notes}</p>
-              <div className="mt-auto flex gap-3 pt-2 text-sm font-medium">
+              {platform.supports_oauth && !platform.configured && !isAdmin ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Peça ao administrador para configurar.
+                </p>
+              ) : null}
+              <div className="mt-auto flex flex-wrap gap-3 pt-2 text-sm font-medium">
                 {platform.supports_oauth ? (
                   <button
                     type="button"
@@ -228,9 +283,59 @@ export function AccountsManager() {
                 >
                   Adicionar conta manual
                 </button>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfigureTarget(platform.id)}
+                    disabled={loadingIntegrations || !integrations[platform.id]}
+                    className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
+                  >
+                    Configurar chaves
+                  </button>
+                ) : null}
               </div>
             </li>
           ))}
+
+          <li className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 font-medium text-slate-900 dark:text-slate-50">
+                IA — títulos e hashtags (Anthropic)
+                <PlatformHelpPopover help={INTEGRATION_HELP.anthropic} redirectUri={null} />
+              </span>
+              {isAdmin ? (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs ${
+                    integrations.anthropic?.configured
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+                      : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                  }`}
+                >
+                  {integrations.anthropic?.configured ? "Configurado" : "Não configurado"}
+                </span>
+              ) : (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  Gerenciado pelo administrador
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Gera títulos e hashtags com IA a partir da transcrição do corte. Sem chave configurada,
+              o sistema usa títulos simples automáticos.
+            </p>
+            {isAdmin ? (
+              <div className="mt-auto flex gap-3 pt-2 text-sm font-medium">
+                <button
+                  type="button"
+                  onClick={() => setConfigureTarget("anthropic")}
+                  disabled={loadingIntegrations || !integrations.anthropic}
+                  className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
+                >
+                  Configurar chaves
+                </button>
+              </div>
+            ) : null}
+          </li>
         </ul>
       </section>
 
@@ -428,6 +533,15 @@ export function AccountsManager() {
           </div>
         ) : null}
       </Dialog>
+
+      {configureTarget && integrations[configureTarget] ? (
+        <IntegrationKeysDialog
+          integration={integrations[configureTarget]}
+          open={configureTarget !== null}
+          onClose={() => setConfigureTarget(null)}
+          onSaved={handleIntegrationSaved}
+        />
+      ) : null}
     </div>
   );
 }

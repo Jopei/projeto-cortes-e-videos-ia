@@ -87,6 +87,7 @@ from app.models.audit_log import AuditLog  # noqa: E402
 from app.models.channel import Channel  # noqa: E402
 from app.models.clip import Clip  # noqa: E402
 from app.models.clip_metadata import ClipMetadata  # noqa: E402
+from app.models.integration_setting import IntegrationSetting  # noqa: E402
 from app.models.platform_account import PlatformAccount  # noqa: E402
 from app.models.publication import Publication  # noqa: E402
 
@@ -98,6 +99,7 @@ NEW_MODEL_TABLES = [
     PlatformAccount.__table__,
     Publication.__table__,
     AuditLog.__table__,
+    IntegrationSetting.__table__,
 ]
 
 

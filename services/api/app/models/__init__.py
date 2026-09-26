@@ -4,6 +4,7 @@ from app.models.channel import Channel
 from app.models.clip import Clip, ClipStatus
 from app.models.clip_metadata import ClipMetadata
 from app.models.enums import Platform
+from app.models.integration_setting import IntegrationSetting
 from app.models.media_asset import MediaAsset, MediaAssetStatus
 from app.models.platform_account import AccountMode, AccountStatus, PlatformAccount
 from app.models.publication import Privacy, Publication, PublicationStatus
@@ -20,6 +21,7 @@ __all__ = [
     "ClipStatus",
     "ClipMetadata",
     "Platform",
+    "IntegrationSetting",
     "MediaAsset",
     "MediaAssetStatus",
     "AccountMode",

@@ -32,8 +32,25 @@ class Settings(BaseSettings):
     youtube_client_secret: str | None = None
     tiktok_client_key: str | None = None
     tiktok_client_secret: str | None = None
+    instagram_app_id: str | None = None
+    instagram_app_secret: str | None = None
+    facebook_app_id: str | None = None
+    facebook_app_secret: str | None = None
+    bilibili_client_id: str | None = None
+    bilibili_client_secret: str | None = None
+    """Env fallback for the fields managed by `app/integrations.py` (see
+    `GET/PUT /api/admin/integrations`) — a value saved in the
+    `integration_settings` table always takes precedence over these; a
+    given deployment can keep using plain env vars and never touch the UI
+    at all."""
 
     token_encryption_key: str | None = None
+
+    public_api_url: str = "http://localhost:18000"
+    """Base URL used to build OAuth `redirect_uri`s surfaced by
+    `GET /api/admin/integrations` (see app/integrations.py) — must match
+    whatever the platform's OAuth app has registered as an allowed
+    redirect."""
 
     celery_task_always_eager: bool = False
     """Run Celery tasks synchronously in-process, no broker needed. Only for

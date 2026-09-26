@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.audit import record_action
-from app.config import get_settings
 from app.db import get_db
+from app.integrations import get_integration_def, get_integration_value
 from app.models.channel import Channel
 from app.models.enums import Platform
 from app.models.platform_account import AccountMode, AccountStatus, PlatformAccount
@@ -52,12 +52,13 @@ PLATFORM_INFO: dict[Platform, dict[str, str | bool]] = {
 
 
 def _oauth_configured(platform: Platform) -> bool:
-    settings = get_settings()
-    if platform == Platform.YOUTUBE:
-        return bool(settings.youtube_client_id and settings.youtube_client_secret)
-    if platform == Platform.TIKTOK:
-        return bool(settings.tiktok_client_key and settings.tiktok_client_secret)
-    return False
+    # `Platform` values line up 1:1 with integration ids in app/integrations.py
+    # (youtube/tiktok/instagram/facebook/bilibili) — effective value is
+    # DB-then-env, see `app.integrations.get_integration_value`.
+    definition = get_integration_def(platform.value)
+    if definition is None:
+        return False
+    return all(get_integration_value(platform.value, f.key) for f in definition.fields if f.required)
 
 
 @router.get("/platforms", response_model=list[PlatformInfo])

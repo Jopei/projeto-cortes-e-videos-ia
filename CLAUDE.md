@@ -508,12 +508,69 @@ nesta etapa: `owner_id` foi adicionado à resposta de `Source`, `MediaAsset`
 `Publication`; `UserRead`/`GET /api/auth/me` ganhou `display_name`, `email`,
 `must_change_password` e as três cotas.
 
+## Integrações (chaves de API cadastráveis pelo admin, migration `0007`)
+
+Antes, as credenciais de YouTube/TikTok/Anthropic só existiam via `.env`. Um
+admin agora pode cadastrá-las (e as de Instagram/Facebook/Bilibili) pela UI,
+sem reiniciar nada — o efetivo é sempre "banco se existir, senão env".
+
+- **`IntegrationSetting`** (`app/models/integration_setting.py`): uma linha
+  por `(integration_id, key)`, `value_encrypted` **sempre** cifrado (Fernet,
+  `app/crypto.py`, mesma `TOKEN_ENCRYPTION_KEY` dos tokens OAuth de
+  `PlatformAccount` — inclusive para campos não-secretos, por simplicidade),
+  `updated_at`/`updated_by` (FK `users.id`, `ON DELETE SET NULL`). Unique
+  `(integration_id, key)`. Limpar um campo (string vazia/`null` no `PUT`, ou
+  `DELETE` do recurso inteiro) **apaga a linha** em vez de gravar vazio — "sem
+  linha" é o que significa "cai pro env".
+- **`app/integrations.py`**: registro das 6 integrações (`youtube`:
+  `client_id`+`client_secret`; `tiktok`: `client_key`+`client_secret`;
+  `instagram`/`facebook`: `app_id`+`app_secret`; `bilibili`: `client_id`+
+  `client_secret`, ambos **opcionais** — sem Open Platform aprovada ainda,
+  ver `PLATFORM_INFO` em `app/routers/accounts.py`; `anthropic`: `api_key`) e
+  `get_integration_value(integration_id, key)` — **a única função** que
+  resolve o valor efetivo (DB então env); usada em `app/routers/accounts.py`
+  (`GET /api/platforms` `configured`), `app/worker/tasks.py` (`run_analysis`,
+  `regenerate_metadata`) e qualquer OAuth futuro. Sem cache — abre uma sessão
+  curta por chamada, de propósito, para o worker (processo separado da API)
+  enxergar uma chave nova sem reiniciar. `Settings` (`app/config.py`) ganhou
+  `instagram_app_id/secret`, `facebook_app_id/secret`,
+  `bilibili_client_id/secret` e `public_api_url` (default
+  `http://localhost:18000`) como fallback de env dessas mesmas chaves.
+- `GET /api/admin/integrations` / `GET /api/admin/integrations/{id}` →
+  `{id, name, fields: [{key, label, secret, required}], values: {<key>:
+  string|null}` (não-secreto em claro; secreto mascarado `"••••" +
+  últimos 4 chars`, ou `null` se vazio), `configured` (todos os `required`
+  preenchidos no efetivo), `source: "db"|"env"|"mixed"|null`, `redirect_uri`
+  (`null` para `anthropic`; senão
+  `f"{PUBLIC_API_URL}/api/accounts/{id}/callback"`), `updated_at`,
+  `updated_by` (username)`}`.
+- `PUT /api/admin/integrations/{id}` `{values: {<key>: string|null}}` —
+  parcial (chave omitida fica inalterada); `""`/`null` limpa (apaga a linha);
+  `strip()` de espaços; chave desconhecida → 422.
+- `DELETE /api/admin/integrations/{id}` → apaga tudo daquela integração no
+  banco (volta a valer o env, se houver). 204.
+- `POST /api/admin/integrations/{id}/test` → `{ok, message}` em PT.
+  `anthropic`: chamada real barata (`GET https://api.anthropic.com/v1/models`
+  via `urllib.request`, timeout 10s, sem dependência nova — o pacote
+  `anthropic` só está instalado na imagem `worker`, não na `api`); as demais
+  só validam formato/presença (ex. `youtube.client_id` termina em
+  `.apps.googleusercontent.com`) e avisam que o teste completo é ao clicar em
+  Conectar.
+- Todos admin-only (`require_admin`: 403 comum, 401 sem sessão).
+- `AuditLog`: `integration.update`/`integration.clear`, `details` só com
+  `{integration_id, keys: [...]}` — nunca valores (nem em claro nem
+  cifrados).
+
+**Contrato de API estável a partir daqui** — qualquer mudança de campo/rota
+deve ser avisada explicitamente ao frontend-specialist.
+
 ## Testes
 
 `services/api/tests/`: `conftest.py` cria as tabelas `sources`/`media_assets`
 via SQL cru (tipos só-Postgres, agora incluindo `default_channel_id`/
 `channel_id`) e as tabelas novas (`Channel`, `AnalysisJob`, `Clip`,
-`ClipMetadata`, `PlatformAccount`, `Publication`, `AuditLog`) via
+`ClipMetadata`, `PlatformAccount`, `Publication`, `AuditLog`,
+`IntegrationSetting`) via
 `Base.metadata.create_all()` — **por isso esses modelos usam
 `sqlalchemy.Uuid`/`JSON` genéricos em vez de `postgresql.UUID`/`ARRAY`**, de
 propósito, para rodar em SQLite nos testes e em Postgres em produção sem
@@ -576,6 +633,18 @@ senha curta 422, username/email duplicado 409, guarda de
 last-admin/self-protection, reset-password + `must_change_password`,
 soft- vs hard-delete, `change-password`, sessão de usuário desativado
 morre imediatamente, `/api/me/usage`).
+
+Cobertura de integrações: `test_integrations.py` (401/403 em todo endpoint;
+lista sempre com as 6 integrações; efetivo `env`/`db`/`mixed`/`null`;
+`configured` reflete `required` — inclusive `bilibili` vacuamente
+`configured=True` sem nada preenchido; mascaramento de secreto; `PUT`
+parcial preserva chave omitida; `strip()`; `""`/`null` limpa e volta pro
+env; chave desconhecida 422; `DELETE` limpa tudo; `GET /api/platforms`
+`configured` reflete integração; `POST .../test` para `anthropic` (sucesso/
+401/sem chave, HTTP mockado) e genérico (formato do `youtube.client_id`,
+campo obrigatório faltando); audit log nunca carrega o valor da chave).
+`IntegrationSetting` usa os mesmos tipos portáveis `sqlalchemy.Uuid`/`Text`
+que `Channel`/etc, então roda em SQLite nos testes sem DDL especial.
 
 ## Convenções
 

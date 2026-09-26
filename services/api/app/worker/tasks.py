@@ -78,6 +78,7 @@ def run_analysis(job_id: str) -> dict[str, str]:
 
     from app.channels import effective_analysis_defaults  # noqa: F401 - kept for symmetry/reference
     from app.config import get_settings
+    from app.integrations import get_integration_value
     from app.models.analysis_job import AnalysisJob, AnalysisJobStatus
     from app.models.clip import Clip, ClipStatus
     from app.models.media_asset import MediaAsset, MediaAssetStatus
@@ -144,7 +145,7 @@ def run_analysis(job_id: str) -> dict[str, str]:
             language=params.get("language"),
             whisper_enabled=settings.whisper_enabled,
             whisper_model=settings.whisper_model,
-            anthropic_api_key=settings.anthropic_api_key,
+            anthropic_api_key=get_integration_value("anthropic", "api_key"),
             on_progress=on_progress,
             is_canceled=is_canceled,
         )
@@ -373,7 +374,7 @@ def regenerate_metadata(clip_id: str, platform: str | None = None) -> dict[str, 
     exact platform was explicitly requested.
     """
     from app.channels import effective_template
-    from app.config import get_settings
+    from app.integrations import get_integration_value
     from app.models.channel import Channel
     from app.models.clip import Clip
     from app.models.clip_metadata import ClipMetadata
@@ -382,7 +383,6 @@ def regenerate_metadata(clip_id: str, platform: str | None = None) -> dict[str, 
     from app.models.source import Source
     from app.worker.metadata.pipeline import generate_metadata
 
-    settings = get_settings()
     session = db_module.SessionLocal()
 
     try:
@@ -428,7 +428,7 @@ def regenerate_metadata(clip_id: str, platform: str | None = None) -> dict[str, 
                 template=template,
                 platform=plat,
                 attribution_text=attribution_text,
-                api_key=settings.anthropic_api_key,
+                api_key=get_integration_value("anthropic", "api_key"),
             )
 
             if entry is None:

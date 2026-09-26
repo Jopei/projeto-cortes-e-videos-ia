@@ -5,6 +5,7 @@ from app.config import get_settings
 
 from app.routers import (
     accounts,
+    admin_integrations,
     admin_users,
     audit_log,
     auth,
@@ -33,6 +34,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(me.router)
 app.include_router(admin_users.router)
+app.include_router(admin_integrations.router)
 app.include_router(sources.router)
 app.include_router(channels.router)
 app.include_router(media_assets.router)
