@@ -35,6 +35,10 @@ class Settings(BaseSettings):
 
     token_encryption_key: str | None = None
 
+    celery_task_always_eager: bool = False
+    """Run Celery tasks synchronously in-process, no broker needed. Only for
+    tests (see tests/conftest.py) — never set true in a real deployment."""
+
     cors_origins: list[str] = ["http://localhost:13000"]
 
     # --- Auth (session cookie / JWT) ---

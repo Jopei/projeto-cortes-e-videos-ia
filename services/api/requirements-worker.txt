@@ -1,0 +1,14 @@
+# Extra dependencies for the `worker`/`beat` images only (on top of
+# requirements.txt, which both the `api` and `worker` targets install — see
+# Dockerfile). The worker stage also installs ffmpeg via apt.
+#
+# Nothing heavy is pinned yet on purpose: etapa B (motor de análise/render)
+# and etapa C (metadados LLM) will add what they actually need here, e.g.:
+#
+# opencv-python-headless   # motion/reframe (app/worker/analysis, app/worker/render)
+# pyscenedetect            # scene-cut density
+# librosa                  # audio loudness/onset analysis
+# faster-whisper           # speech transcription + subtitles
+# mediapipe                # face/subject tracking for the 9:16 reframe
+# anthropic                # LLM titles/descriptions/hashtags (etapa C)
+# ffmpeg-python            # thin wrapper around the ffmpeg CLI

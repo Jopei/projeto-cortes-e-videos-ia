@@ -10,6 +10,13 @@ os.environ.setdefault("DATABASE_URL", "sqlite://")
 os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "test-admin-password-not-real")
 os.environ.setdefault("COOKIE_SECURE", "false")
+os.environ.setdefault("TOKEN_ENCRYPTION_KEY", "ASJwV0_SSFwawWjGMraqF4cZ5HfxIf7UD7sVB6h0WfU=")
+# Runs Celery tasks synchronously in-process instead of publishing to a real
+# broker — see app/worker/celery_app.py. No test in this suite is expected
+# to actually exercise task *logic* against these tables (that's for a
+# dedicated worker test suite in a later phase); this just keeps an
+# accidental `.delay()` call from hanging/erroring for lack of Redis.
+os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "true")
 
 import uuid  # noqa: E402
 
@@ -48,14 +55,50 @@ CREATE TABLE sources (
 )
 """
 
+# Also postgres-only-free by hand, for the same reason as `sources` above —
+# `MediaAsset.source_id`/`.id` use the dialect UUID type. `duration` and
+# `status` aren't needed by any fixture yet.
+MEDIA_ASSETS_TABLE_DDL = """
+CREATE TABLE media_assets (
+    id TEXT PRIMARY KEY,
+    source_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    storage_key TEXT NOT NULL,
+    duration REAL,
+    status TEXT NOT NULL DEFAULT 'uploaded',
+    created_at TEXT
+)
+"""
+
+# AnalysisJob/Clip/ClipMetadata/PlatformAccount/Publication/AuditLog (etapa A)
+# use the portable `sqlalchemy.Uuid`/`JSON` types instead, specifically so
+# they DO survive `Base.metadata.create_all()` on sqlite — no hand-written
+# DDL needed for these.
+from app.models.analysis_job import AnalysisJob  # noqa: E402
+from app.models.audit_log import AuditLog  # noqa: E402
+from app.models.clip import Clip  # noqa: E402
+from app.models.clip_metadata import ClipMetadata  # noqa: E402
+from app.models.platform_account import PlatformAccount  # noqa: E402
+from app.models.publication import Publication  # noqa: E402
+
+NEW_MODEL_TABLES = [
+    AnalysisJob.__table__,
+    Clip.__table__,
+    ClipMetadata.__table__,
+    PlatformAccount.__table__,
+    Publication.__table__,
+    AuditLog.__table__,
+]
+
 
 @pytest.fixture()
 def db_engine():
     """A throwaway sqlite DB per test — Source/MediaAsset use postgres-only
     types (ARRAY, dialect UUID) that don't survive `create_all` on sqlite, so
-    only the `users` table is created via the ORM; `sources` is created with
-    a plain-SQL schema (see module docstring) which is enough for the
-    ORM `db.get(Source, id)` lookup the upload hook performs.
+    only the `users` table (plus the etapa-A tables, which use portable
+    types) is created via the ORM; `sources`/`media_assets` are created with
+    a plain-SQL schema (see module docstring) which is enough for the simple
+    lookups/inserts the API and these fixtures perform.
     """
     engine = create_engine(
         "sqlite://",
@@ -63,8 +106,11 @@ def db_engine():
         poolclass=StaticPool,
     )
     User.__table__.create(engine)
+    for table in NEW_MODEL_TABLES:
+        table.create(engine)
     with engine.begin() as conn:
         conn.execute(text(SOURCES_TABLE_DDL))
+        conn.execute(text(MEDIA_ASSETS_TABLE_DDL))
     yield engine
     engine.dispose()
 
@@ -127,3 +173,32 @@ def source_id(session_factory) -> uuid.UUID:
     db.commit()
     db.close()
     return new_id
+
+
+@pytest.fixture()
+def media_asset_id(session_factory, source_id) -> uuid.UUID:
+    new_id = uuid.uuid4()
+    db = session_factory()
+    db.execute(
+        text(
+            "INSERT INTO media_assets (id, source_id, filename, storage_key, status)"
+            " VALUES (:id, :source_id, :filename, :storage_key, 'ready')"
+        ),
+        {
+            "id": new_id.hex,
+            "source_id": source_id.hex,
+            "filename": "test.mp4",
+            "storage_key": "media-assets/test.mp4",
+        },
+    )
+    db.commit()
+    db.close()
+    return new_id
+
+
+@pytest.fixture()
+def logged_in_client(client, user, user_password):
+    """The shared `client` fixture, already carrying a valid session cookie."""
+    resp = client.post("/api/auth/login", json={"username": user.username, "password": user_password})
+    assert resp.status_code == 200
+    return client

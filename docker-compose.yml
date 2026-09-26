@@ -97,6 +97,7 @@ services:
   api:
     build:
       context: ./services/api
+      target: api
     restart: unless-stopped
     env_file:
       - .env
@@ -116,9 +117,36 @@ services:
     volumes:
       - ./services/api:/app
 
+  # Worker and beat build from the SAME codebase as the api (services/api),
+  # target `worker` in the multi-stage Dockerfile: one source of truth for
+  # models/schemas/rights-gate, no drift between what the API writes and
+  # what the worker reads.
   worker:
     build:
-      context: ./services/worker
+      context: ./services/api
+      target: worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://cortes:cortes@postgres:5432/cortes}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://storage:8333}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./services/api:/app
+
+  beat:
+    build:
+      context: ./services/api
+      target: worker
+    command: ["celery", "-A", "app.worker.celery_app.celery_app", "beat", "--loglevel=INFO"]
     restart: unless-stopped
     env_file:
       - .env
@@ -132,7 +160,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./services/worker:/app
+      - ./services/api:/app
 
   # Dockerfile for apps/web is owned by the frontend specialist; this service
   # entry just wires it into the compose network/ports.
