@@ -67,14 +67,14 @@ export function Dialog({ open, onClose, title, children, widthClassName }: Dialo
         aria-label="Fechar"
         tabIndex={-1}
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/60"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
       />
       <div
         ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-lg bg-white p-6 shadow-xl dark:bg-slate-900 ${
+        className={`relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-2xl shadow-black/40 ring-1 ring-black/5 dark:border-slate-600 dark:bg-slate-800 dark:shadow-black/70 dark:ring-white/10 ${
           widthClassName ?? "max-w-lg"
         }`}
       >

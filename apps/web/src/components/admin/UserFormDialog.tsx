@@ -131,6 +131,8 @@ export function UserFormDialog(props: CreateProps | EditProps) {
           </label>
           <input
             id="user-username"
+            name="new-user-username"
+            autoComplete="off"
             required
             disabled={props.mode === "edit"}
             value={username}
@@ -147,6 +149,8 @@ export function UserFormDialog(props: CreateProps | EditProps) {
             <div className="flex items-center gap-2">
               <input
                 id="user-password"
+                name="new-user-password"
+                autoComplete="new-password"
                 type={showPassword ? "text" : "password"}
                 required
                 minLength={MIN_PASSWORD_LENGTH}
