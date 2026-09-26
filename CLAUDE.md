@@ -24,6 +24,48 @@ decisão — não duplique essa lógica em publishers ou em outros lugares.
 Uploads sem `source_id` são rejeitados antes mesmo de começar, pelo hook
 `pre-create` do tusd (`services/api/app/routers/uploads.py`).
 
+## Auth
+
+Login por sessão em cookie httpOnly (`cortes_session`, JWT HS256, 7 dias),
+implementado em `services/api/app/security.py` (hash argon2 + JWT + cookie),
+`app/rate_limit.py` (rate limit em memória), `app/deps.py` (dependência
+`get_current_user`) e `app/routers/auth.py`.
+
+- `POST /api/auth/login` `{username, password}` → 200 com o usuário
+  (`UserRead`) e `Set-Cookie: cortes_session=...; HttpOnly; SameSite=Lax;
+  Path=/` (mais `Secure` se `COOKIE_SECURE=true`); 401 genérico em
+  credenciais inválidas; 429 após 5 tentativas falhas por IP+username em 15
+  min (reseta no sucesso).
+- `POST /api/auth/logout` → limpa o cookie, sempre 200.
+- `GET /api/auth/me` → usuário autenticado ou 401.
+- Todas as rotas `/api/*` exigem sessão válida (dependência de router,
+  `dependencies=[Depends(get_current_user)]`), **exceto**: `/api/health`,
+  `/api/auth/login`, `/api/auth/logout` e o hook do tusd.
+- Hook do tusd (`POST /api/uploads/tusd-hook`, público na rede interna):
+  no evento `pre-create`, exige o mesmo cookie de sessão (tusd repassa o
+  header `Cookie` do cliente via `-hooks-http-forward-headers=Cookie` no
+  `docker-compose.yml`); sem sessão válida, responde `RejectUpload: true` +
+  `HTTPResponse.StatusCode: 401` (o endpoint do hook em si sempre responde
+  HTTP 200, como exige o protocolo do tusd). **Risco residual conhecido**:
+  não há segredo estático entre tusd e o hook (a versão do tusd em uso não
+  tem flag para isso) e apenas `pre-create` valida sessão — `post-finish`/
+  `post-terminate` continuam alcançáveis por quem tiver acesso à porta da
+  API sem cookie, podendo criar `MediaAsset` "órfãos" apontando para
+  `storage_key` arbitrário (não expõe conteúdo, só polui a tabela). Mitigar
+  de verdade exigiria segmentar a rede (tusd/API sem porta pública, atrás de
+  proxy) — fora do escopo deste especialista, sinalizar para
+  pipeline-specialist/production-ops se virar prioridade.
+- Admin inicial: `python -m app.cli create-admin` (dentro do container
+  `api`) cria o usuário a partir de `ADMIN_USERNAME`/`ADMIN_PASSWORD` (não
+  sobrescreve senha existente; use `--reset` para trocar). Não é criado
+  automaticamente no startup do FastAPI, de propósito.
+- `SECRET_KEY` é obrigatório e precisa ter 32+ caracteres — a API recusa
+  subir sem isso (`app/config.py::Settings._require_secret_key`).
+- Testes de auth usam SQLite em memória (`services/api/tests/conftest.py`);
+  `Source`/`MediaAsset` usam tipos só-Postgres (`ARRAY`, `UUID`) que não
+  compilam DDL em SQLite, então a tabela `sources` de teste é criada via SQL
+  cru — ver o docstring do fixture antes de mexer nisso.
+
 ## Stack
 
 - **API** (`services/api`): FastAPI + SQLAlchemy 2 + Alembic + pydantic-settings, Python 3.12.
@@ -43,9 +85,13 @@ projetos_cortes/
 │  │  ├─ main.py             # monta os routers
 │  │  ├─ config.py           # Settings (pydantic-settings)
 │  │  ├─ db.py                # engine, SessionLocal, Base, get_db
-│  │  ├─ models/              # Source, MediaAsset (SQLAlchemy)
+│  │  ├─ security.py          # hash de senha (argon2), JWT, cookie de sessão
+│  │  ├─ deps.py              # get_current_user (protege rotas /api/*)
+│  │  ├─ rate_limit.py        # rate limit em memória do login
+│  │  ├─ cli.py                # `python -m app.cli create-admin`
+│  │  ├─ models/              # Source, MediaAsset, User (SQLAlchemy)
 │  │  ├─ schemas/             # Pydantic (request/response)
-│  │  ├─ routers/             # health, sources (CRUD), media_assets, uploads (tusd hook)
+│  │  ├─ routers/             # health, auth, sources (CRUD), media_assets, uploads (tusd hook)
 │  │  └─ rights/gate.py       # rights gate (ver acima)
 │  ├─ alembic/                # migrations
 │  └─ tests/                  # pytest (gate coberto com casos permitido/bloqueado)
@@ -70,7 +116,7 @@ Validar o compose sem subir nada:
 docker compose config
 ```
 
-Rodar os testes da API (rights gate):
+Rodar os testes da API (rights gate + auth):
 ```
 cd services/api
 python3 -m venv .venv

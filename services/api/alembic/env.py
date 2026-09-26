@@ -11,7 +11,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings  # noqa: E402
 from app.db import Base  # noqa: E402
-from app.models import media_asset, source  # noqa: E402,F401  (register models on Base.metadata)
+from app.models import media_asset, source, user  # noqa: E402,F401  (register models on Base.metadata)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)

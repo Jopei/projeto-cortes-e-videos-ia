@@ -13,6 +13,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setDrawerOpen(false);
   }, [pathname]);
 
+  // The login screen lives outside the app chrome: no sidebar, no nav.
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <a

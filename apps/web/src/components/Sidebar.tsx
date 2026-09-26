@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { navGroups } from "@/lib/nav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { StatusIndicator } from "@/components/StatusIndicator";
+import { getCurrentUser, logout, type UserRead } from "@/lib/auth";
 
 type SidebarProps = {
   onNavigate?: () => void;
@@ -12,6 +14,31 @@ type SidebarProps = {
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<UserRead | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getCurrentUser(controller.signal)
+      .then((data) => setUser(data))
+      .catch(() => {
+        // lib/api.ts already redirects to /login on 401; anything else just
+        // leaves the user info blank.
+      });
+    return () => controller.abort();
+  }, []);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await logout();
+    } catch {
+      // best-effort: still send the user to the login screen
+    } finally {
+      router.replace("/login");
+    }
+  }
 
   return (
     <nav
@@ -76,6 +103,21 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </div>
 
       <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
+        {user ? (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
+            <span className="truncate" title={user.username}>
+              {user.username}
+            </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="shrink-0 font-medium text-indigo-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-indigo-400"
+            >
+              {loggingOut ? "Saindo…" : "Sair"}
+            </button>
+          </div>
+        ) : null}
         <StatusIndicator />
         <ThemeToggle />
       </div>

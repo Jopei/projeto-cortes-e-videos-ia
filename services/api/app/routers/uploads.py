@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.deps import resolve_user_from_cookie
 from app.models.media_asset import MediaAsset
 from app.models.source import Source
 
@@ -35,11 +36,18 @@ def _reject(message: str, status_code: int = 400) -> JSONResponse:
 async def tusd_hook(request: Request, db: Session = Depends(get_db)) -> Any:
     """HTTP hook consumed by tusd (see tusd's HTTP hooks documentation).
 
-    - `pre-create`: rejects the upload unless `metadata.source_id` names an
-      existing Source. This is what makes "upload without a rights record"
+    - `pre-create`: requires a valid `cortes_session` cookie (tusd forwards
+      the client's `Cookie` header here via `-hooks-http-forward-headers`,
+      see docker-compose.yml) *and* rejects the upload unless
+      `metadata.source_id` names an existing Source. This is what makes
+      "upload without a rights record" (or without being logged in)
       impossible at the transport level, not just discouraged by convention.
     - `post-finish`: creates the MediaAsset row once the upload is complete.
     - any other hook type: acknowledged as a no-op (HTTP 200).
+
+    This endpoint is otherwise unauthenticated by necessity (tusd is the
+    caller, on the internal docker network) — see CLAUDE.md "Auth" section
+    for the residual-risk note on `post-finish`/`post-terminate`.
     """
     payload = await request.json()
     hook_type = payload.get("Type")
@@ -48,6 +56,8 @@ async def tusd_hook(request: Request, db: Session = Depends(get_db)) -> Any:
     source_id_raw = metadata.get("source_id")
 
     if hook_type == "pre-create":
+        if resolve_user_from_cookie(request, db) is None:
+            return _reject("Authentication required", status_code=401)
         if not source_id_raw:
             return _reject("metadata.source_id is required to start an upload")
         try:

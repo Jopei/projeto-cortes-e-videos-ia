@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """App configuration, read from the environment (see .env.example).
 
-    Every field has a sane local-dev default so importing this module never
-    fails when a real .env is absent (unit tests, one-off scripts, etc.).
+    Most fields have a sane local-dev default so importing this module never
+    fails when a real .env is absent (unit tests, one-off scripts, etc). The
+    exception is `secret_key`, which signs session cookies/JWTs: the app
+    refuses to start without a real one (see `_require_secret_key` below).
     """
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -33,6 +36,27 @@ class Settings(BaseSettings):
     token_encryption_key: str | None = None
 
     cors_origins: list[str] = ["http://localhost:13000"]
+
+    # --- Auth (session cookie / JWT) ---
+    secret_key: str = ""
+    """HS256 signing key for the `cortes_session` cookie JWT. Required, >=32 chars."""
+    cookie_secure: bool = False
+    """Set the `Secure` flag on the session cookie. Enable in production (HTTPS)."""
+    session_cookie_name: str = "cortes_session"
+    session_ttl_days: int = 7
+
+    # --- Initial admin account (see `python -m app.cli create-admin`) ---
+    admin_username: str | None = None
+    admin_password: str | None = None
+
+    @model_validator(mode="after")
+    def _require_secret_key(self) -> "Settings":
+        if not self.secret_key or len(self.secret_key) < 32:
+            raise ValueError(
+                "SECRET_KEY is missing or shorter than 32 characters. Set a "
+                "long random value in .env (see .env.example) before starting the API."
+            )
+        return self
 
 
 @lru_cache

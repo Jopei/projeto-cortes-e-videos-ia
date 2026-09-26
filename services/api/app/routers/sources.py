@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.deps import get_current_user
 from app.models.source import Source
 from app.schemas.source import SourceCreate, SourceRead, SourceUpdate
 
-router = APIRouter(prefix="/api/sources", tags=["sources"])
+router = APIRouter(prefix="/api/sources", tags=["sources"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("", response_model=SourceRead, status_code=201)

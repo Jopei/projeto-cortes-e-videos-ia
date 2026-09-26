@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.deps import get_current_user
 from app.models.media_asset import MediaAsset
 from app.schemas.media_asset import MediaAssetRead
 
-router = APIRouter(prefix="/api/media-assets", tags=["media-assets"])
+router = APIRouter(prefix="/api/media-assets", tags=["media-assets"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=list[MediaAssetRead])

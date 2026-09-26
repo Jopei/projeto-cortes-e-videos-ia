@@ -1,11 +1,19 @@
-import { PlaceholderPage } from "@/components/PlaceholderPage";
+import { SourcesManager } from "@/components/sources/SourcesManager";
 
 export default function FontesLicencasPage() {
   return (
-    <PlaceholderPage
-      title="Fontes & Licenças"
-      description="Cadastro das fontes de vídeo (licenciadas ou de domínio público) e do tipo de licença associada a cada uma, incluindo trilhas e dublagens usadas nos cortes."
-    >
+    <div className="mx-auto flex max-w-5xl flex-col gap-4">
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
+          Fontes & Licenças
+        </h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          Cadastro das fontes de vídeo (licenciadas ou de domínio público) e do
+          tipo de licença associada a cada uma, incluindo trilhas e dublagens
+          usadas nos cortes.
+        </p>
+      </div>
+
       <div
         role="alert"
         className="rounded-lg border-2 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200"
@@ -23,6 +31,8 @@ export default function FontesLicencasPage() {
           </li>
         </ul>
       </div>
-    </PlaceholderPage>
+
+      <SourcesManager />
+    </div>
   );
 }

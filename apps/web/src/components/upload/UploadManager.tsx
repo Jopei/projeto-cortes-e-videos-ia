@@ -1,0 +1,516 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as tus from "tus-js-client";
+import { ApiError } from "@/lib/api";
+import { listMediaAssets, MEDIA_ASSET_STATUS_LABELS, type MediaAsset } from "@/lib/media-assets";
+import { listSources, type Source } from "@/lib/sources";
+import {
+  ACCEPTED_EXTENSIONS,
+  TUS_URL,
+  formatBytes,
+  formatDuration,
+  hasAcceptedExtension,
+} from "@/lib/tus";
+
+const CHUNK_SIZE = 50 * 1024 * 1024; // ~50MB per spec
+
+type UploadStatus = "queued" | "uploading" | "paused" | "success" | "error";
+
+type UploadItem = {
+  id: string;
+  filename: string;
+  totalBytes: number;
+  status: UploadStatus;
+  bytesUploaded: number;
+  speedBps: number;
+  error?: string;
+};
+
+type UploadRefs = {
+  upload: tus.Upload;
+  lastProgressAt: number;
+  lastProgressBytes: number;
+};
+
+function randomId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export function UploadManager() {
+  const [sources, setSources] = useState<Source[]>([]);
+  const [sourcesLoading, setSourcesLoading] = useState(true);
+  const [sourcesError, setSourcesError] = useState<string | null>(null);
+  const [selectedSourceId, setSelectedSourceId] = useState<string>("");
+
+  const [items, setItems] = useState<UploadItem[]>([]);
+  const uploadsRef = useRef<Map<string, UploadRefs>>(new Map());
+
+  const [assets, setAssets] = useState<MediaAsset[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(true);
+  const [assetsError, setAssetsError] = useState<string | null>(null);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [liveMessage, setLiveMessage] = useState("");
+
+  const loadSources = useCallback(async (signal?: AbortSignal) => {
+    setSourcesLoading(true);
+    setSourcesError(null);
+    try {
+      const data = await listSources(signal);
+      setSources(data);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setSourcesError(
+        err instanceof ApiError ? err.message : "Não foi possível carregar as fontes.",
+      );
+    } finally {
+      setSourcesLoading(false);
+    }
+  }, []);
+
+  const loadAssets = useCallback(async (signal?: AbortSignal) => {
+    setAssetsLoading(true);
+    setAssetsError(null);
+    try {
+      const data = await listMediaAssets(signal);
+      setAssets(data);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setAssetsError(
+        err instanceof ApiError ? err.message : "Não foi possível carregar os uploads recebidos.",
+      );
+    } finally {
+      setAssetsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadSources(controller.signal);
+    return () => controller.abort();
+  }, [loadSources]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadAssets(controller.signal);
+    return () => controller.abort();
+  }, [loadAssets]);
+
+  const sourceById = useMemo(() => {
+    const map = new Map<string, Source>();
+    for (const source of sources) map.set(source.id, source);
+    return map;
+  }, [sources]);
+
+  function updateItem(id: string, patch: Partial<UploadItem>) {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }
+
+  async function addFiles(fileList: FileList | File[]) {
+    if (!selectedSourceId) return;
+    const files = Array.from(fileList);
+
+    for (const file of files) {
+      if (!hasAcceptedExtension(file.name)) {
+        setLiveMessage(`Arquivo "${file.name}" ignorado: extensão não suportada.`);
+        continue;
+      }
+
+      const id = randomId();
+      const item: UploadItem = {
+        id,
+        filename: file.name,
+        totalBytes: file.size,
+        status: "queued",
+        bytesUploaded: 0,
+        speedBps: 0,
+      };
+      setItems((prev) => [...prev, item]);
+
+      const upload = new tus.Upload(file, {
+        endpoint: TUS_URL,
+        chunkSize: CHUNK_SIZE,
+        retryDelays: [0, 1000, 3000, 5000, 10000],
+        metadata: {
+          filename: file.name,
+          filetype: file.type || "application/octet-stream",
+          source_id: selectedSourceId,
+        },
+        onBeforeRequest: (req) => {
+          // tusd validates the same `cortes_session` cookie as the API; the
+          // browser only attaches it cross-port if the request is made with
+          // credentials.
+          const xhr = req.getUnderlyingObject() as XMLHttpRequest;
+          xhr.withCredentials = true;
+        },
+        onError: (error) => {
+          const detailed = error as tus.DetailedError;
+          const status = detailed.originalResponse?.getStatus?.();
+          if (status === 401) {
+            updateItem(id, { status: "error", error: "Sessão expirada. Faça login novamente." });
+            const next = `${window.location.pathname}${window.location.search}`;
+            window.location.href = `/login?next=${encodeURIComponent(next)}`;
+            return;
+          }
+          const serverMessage = detailed.originalResponse?.getBody?.();
+          updateItem(id, {
+            status: "error",
+            error: serverMessage?.trim() || error.message || "Falha no upload.",
+          });
+          setLiveMessage(`Erro ao enviar "${file.name}": ${serverMessage || error.message}`);
+        },
+        onProgress: (bytesUploaded, bytesTotal) => {
+          const refs = uploadsRef.current.get(id);
+          const now = Date.now();
+          let speedBps = 0;
+          if (refs) {
+            const elapsedSec = (now - refs.lastProgressAt) / 1000;
+            const deltaBytes = bytesUploaded - refs.lastProgressBytes;
+            if (elapsedSec > 0) speedBps = deltaBytes / elapsedSec;
+            refs.lastProgressAt = now;
+            refs.lastProgressBytes = bytesUploaded;
+          }
+          updateItem(id, { bytesUploaded, totalBytes: bytesTotal, speedBps, status: "uploading" });
+        },
+        onSuccess: () => {
+          updateItem(id, { status: "success", bytesUploaded: item.totalBytes });
+          setLiveMessage(`Upload de "${file.name}" concluído.`);
+          loadAssets();
+        },
+      });
+
+      uploadsRef.current.set(id, { upload, lastProgressAt: Date.now(), lastProgressBytes: 0 });
+
+      try {
+        const previousUploads = await upload.findPreviousUploads();
+        if (previousUploads.length > 0) {
+          upload.resumeFromPreviousUpload(previousUploads[0]);
+          setLiveMessage(`Retomando upload anterior de "${file.name}".`);
+        }
+      } catch {
+        // ignore: if lookup fails we just start a fresh upload
+      }
+
+      updateItem(id, { status: "uploading" });
+      upload.start();
+    }
+  }
+
+  function handlePause(id: string) {
+    const refs = uploadsRef.current.get(id);
+    if (!refs) return;
+    refs.upload.abort(false);
+    updateItem(id, { status: "paused" });
+  }
+
+  function handleResume(id: string) {
+    const refs = uploadsRef.current.get(id);
+    if (!refs) return;
+    refs.upload.start();
+    updateItem(id, { status: "uploading" });
+  }
+
+  async function handleCancel(id: string) {
+    const refs = uploadsRef.current.get(id);
+    if (!refs) return;
+    try {
+      await refs.upload.abort(true);
+    } catch {
+      // best-effort: still remove locally even if the terminate call failed
+    }
+    uploadsRef.current.delete(id);
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files && e.target.files.length > 0) {
+      addFiles(e.target.files);
+    }
+    e.target.value = "";
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!selectedSourceId) return;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      addFiles(e.dataTransfer.files);
+    }
+  }
+
+  const uploadDisabled = !selectedSourceId;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div aria-live="polite" className="sr-only">
+        {liveMessage}
+      </div>
+
+      <section aria-labelledby="step1-heading" className="flex flex-col gap-2">
+        <h2 id="step1-heading" className="text-base font-semibold text-slate-900 dark:text-slate-50">
+          1. Selecione a fonte/licença
+        </h2>
+
+        {sourcesLoading ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Carregando fontes…</p>
+        ) : sourcesError ? (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            {sourcesError}
+          </p>
+        ) : sources.length === 0 ? (
+          <div className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200">
+            Nenhuma fonte cadastrada ainda.{" "}
+            <Link href="/cortes/fontes-licencas" className="font-semibold underline">
+              Cadastre uma fonte
+            </Link>{" "}
+            antes de enviar arquivos.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="source-select" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              Fonte
+            </label>
+            <select
+              id="source-select"
+              value={selectedSourceId}
+              onChange={(e) => setSelectedSourceId(e.target.value)}
+              className="w-full max-w-md rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+            >
+              <option value="">Selecione…</option>
+              {sources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.title} ({source.work_name})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="step2-heading" className="flex flex-col gap-3">
+        <h2 id="step2-heading" className="text-base font-semibold text-slate-900 dark:text-slate-50">
+          2. Envie os arquivos
+        </h2>
+
+        <p className="rounded-md border border-amber-400 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200">
+          Só envie conteúdo cuja licença cadastrada cubra o uso pretendido.
+        </p>
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!uploadDisabled) setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+            uploadDisabled
+              ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600"
+              : isDragging
+                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                : "border-slate-300 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
+          }`}
+        >
+          <p className="text-sm">
+            {uploadDisabled
+              ? "Selecione uma fonte acima para habilitar o envio."
+              : "Arraste arquivos aqui ou use o seletor abaixo."}
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            Formatos aceitos: {ACCEPTED_EXTENSIONS.join(", ")}
+          </p>
+          <label
+            htmlFor="file-input"
+            className={`rounded-md border px-4 py-2 text-sm font-medium ${
+              uploadDisabled
+                ? "cursor-not-allowed border-slate-200 text-slate-400 dark:border-slate-800 dark:text-slate-600"
+                : "cursor-pointer border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            }`}
+          >
+            Escolher arquivos
+          </label>
+          <input
+            id="file-input"
+            type="file"
+            multiple
+            accept={ACCEPTED_EXTENSIONS.join(",")}
+            disabled={uploadDisabled}
+            onChange={handleFileInputChange}
+            className="sr-only"
+          />
+        </div>
+
+        {items.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {items.map((item) => (
+              <UploadRow
+                key={item.id}
+                item={item}
+                onPause={() => handlePause(item.id)}
+                onResume={() => handleResume(item.id)}
+                onCancel={() => handleCancel(item.id)}
+              />
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      <section aria-labelledby="received-heading" className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h2 id="received-heading" className="text-base font-semibold text-slate-900 dark:text-slate-50">
+            Uploads recebidos
+          </h2>
+          <button
+            type="button"
+            onClick={() => loadAssets()}
+            className="text-sm font-medium text-indigo-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-indigo-400"
+          >
+            Atualizar
+          </button>
+        </div>
+
+        {assetsLoading ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Carregando…</p>
+        ) : assetsError ? (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            {assetsError}
+          </p>
+        ) : assets.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Nenhum upload recebido ainda.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+              <caption className="sr-only">Arquivos já recebidos pelo servidor</caption>
+              <thead className="bg-slate-50 dark:bg-slate-900">
+                <tr>
+                  <th scope="col" className={thClass}>
+                    Arquivo
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Fonte
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Status
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Recebido em
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+                {assets.map((asset) => (
+                  <tr key={asset.id}>
+                    <td className={tdClass}>{asset.filename}</td>
+                    <td className={tdClass}>
+                      {sourceById.get(asset.source_id)?.title ?? asset.source_id}
+                    </td>
+                    <td className={tdClass}>{MEDIA_ASSET_STATUS_LABELS[asset.status]}</td>
+                    <td className={tdClass}>
+                      {new Date(asset.created_at).toLocaleString("pt-BR")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+const thClass =
+  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300";
+const tdClass = "px-4 py-3 text-slate-800 dark:text-slate-100";
+
+const STATUS_LABELS: Record<UploadStatus, string> = {
+  queued: "Na fila",
+  uploading: "Enviando",
+  paused: "Pausado",
+  success: "Concluído",
+  error: "Erro",
+};
+
+function UploadRow({
+  item,
+  onPause,
+  onResume,
+  onCancel,
+}: {
+  item: UploadItem;
+  onPause: () => void;
+  onResume: () => void;
+  onCancel: () => void;
+}) {
+  const percent = item.totalBytes > 0 ? Math.min(100, (item.bytesUploaded / item.totalBytes) * 100) : 0;
+  const remainingBytes = Math.max(0, item.totalBytes - item.bytesUploaded);
+  const etaSeconds = item.speedBps > 0 ? remainingBytes / item.speedBps : null;
+
+  return (
+    <li className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+          {item.filename}
+        </span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {STATUS_LABELS[item.status]}
+        </span>
+      </div>
+
+      <div
+        role="progressbar"
+        aria-valuenow={Math.round(percent)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Progresso do envio de ${item.filename}`}
+        className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+      >
+        <div
+          className={`h-full rounded-full transition-all ${
+            item.status === "error" ? "bg-red-500" : "bg-indigo-600"
+          }`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <span>
+          {formatBytes(item.bytesUploaded)} / {formatBytes(item.totalBytes)} ({percent.toFixed(0)}%)
+        </span>
+        {item.status === "uploading" ? (
+          <span>
+            {formatBytes(item.speedBps)}/s · ETA {etaSeconds !== null ? formatDuration(etaSeconds) : "—"}
+          </span>
+        ) : null}
+      </div>
+
+      {item.error ? (
+        <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
+          {item.error}
+        </p>
+      ) : null}
+
+      <div className="mt-2 flex gap-3 text-xs font-medium">
+        {item.status === "uploading" ? (
+          <button type="button" onClick={onPause} className="text-indigo-600 hover:underline dark:text-indigo-400">
+            Pausar
+          </button>
+        ) : null}
+        {item.status === "paused" || item.status === "error" ? (
+          <button type="button" onClick={onResume} className="text-indigo-600 hover:underline dark:text-indigo-400">
+            Retomar
+          </button>
+        ) : null}
+        {item.status !== "success" ? (
+          <button type="button" onClick={onCancel} className="text-red-600 hover:underline dark:text-red-400">
+            Cancelar
+          </button>
+        ) : null}
+      </div>
+    </li>
+  );
+}
