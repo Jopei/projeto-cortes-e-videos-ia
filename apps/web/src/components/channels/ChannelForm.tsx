@@ -137,7 +137,9 @@ export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
       setError(
         err instanceof ApiError
           ? err.status === 409
-            ? "Já existe um canal com esse slug."
+            ? err.message.toLowerCase().includes("canais")
+              ? err.message
+              : "Já existe um canal com esse slug."
             : (err.detail ? formatApiErrorDetail(err.detail) : err.message)
           : "Erro inesperado ao salvar o canal.",
       );

@@ -27,12 +27,18 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_session_token(user_id: uuid.UUID, username: str) -> str:
+def create_session_token(user_id: uuid.UUID, username: str, session_version: int) -> str:
+    """`session_version` is stamped into the `sv` claim and re-checked against
+    `User.session_version` on every request (see
+    `app/deps.py::resolve_user_from_cookie`) — bumping the column value
+    revokes every JWT issued before that point, without a server-side
+    session store. Always pass the CURRENT `user.session_version`."""
     settings = get_settings()
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
         "username": username,
+        "sv": session_version,
         "iat": now,
         "exp": now + timedelta(days=settings.session_ttl_days),
     }

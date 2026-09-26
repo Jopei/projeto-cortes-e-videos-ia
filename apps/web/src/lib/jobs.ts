@@ -26,6 +26,7 @@ export const JOB_STATUS_LABELS: Record<AnalysisJobStatus, string> = {
 /** Mirrors app/schemas/analysis_job.py::AnalysisJobRead. */
 export type AnalysisJob = {
   id: string;
+  owner_id: string;
   media_asset_id: string;
   channel_id: string | null;
   status: AnalysisJobStatus;

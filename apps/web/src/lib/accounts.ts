@@ -22,6 +22,7 @@ export type PostingWindow = {
 /** Mirrors app/schemas/platform_account.py::PlatformAccountRead. */
 export type PlatformAccount = {
   id: string;
+  owner_id: string;
   channel_id: string | null;
   platform: PlatformValue;
   display_name: string;

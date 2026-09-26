@@ -45,13 +45,36 @@ def login(
     db.commit()
     db.refresh(user)
 
-    token = create_session_token(user.id, user.username)
+    token = create_session_token(user.id, user.username, user.session_version)
     set_session_cookie(response, token)
     return user
 
 
 @router.post("/logout")
 def logout(response: Response) -> dict[str, bool]:
+    clear_session_cookie(response)
+    return {"ok": True}
+
+
+@router.post("/logout-all")
+def logout_all(
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, bool]:
+    """Revoke every session for the current user, including this one —
+    bumps `session_version` (invalidating every JWT issued so far, on any
+    device) and also clears this request's own cookie."""
+    current_user.session_version += 1
+    record_action(
+        db,
+        user_id=current_user.id,
+        action="session.logout_all",
+        entity="user",
+        entity_id=current_user.id,
+        details=None,
+    )
+    db.commit()
     clear_session_cookie(response)
     return {"ok": True}
 
@@ -64,6 +87,7 @@ def me(current_user: User = Depends(get_current_user)) -> User:
 @router.post("/change-password")
 def change_password(
     payload: ChangePasswordRequest,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, bool]:
@@ -72,6 +96,11 @@ def change_password(
 
     current_user.password_hash = hash_password(payload.new_password)
     current_user.must_change_password = False
+    # Revoke every cookie issued before this point (see
+    # `app/models/user.py::session_version`), then immediately re-issue a
+    # fresh one for THIS request/session so the user changing their own
+    # password isn't logged out by the act of doing so.
+    current_user.session_version += 1
     record_action(
         db,
         user_id=current_user.id,
@@ -81,4 +110,8 @@ def change_password(
         details=None,
     )
     db.commit()
+    db.refresh(current_user)
+
+    new_token = create_session_token(current_user.id, current_user.username, current_user.session_version)
+    set_session_cookie(response, new_token)
     return {"ok": True}

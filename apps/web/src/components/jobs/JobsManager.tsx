@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
+import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { useChannelContext } from "@/lib/channel-context";
 import {
   JOB_ACTIVE_STATUSES,
@@ -24,6 +25,8 @@ const STATUS_FILTERS: (AnalysisJobStatus | "")[] = ["", "queued", "running", "do
 export function JobsManager() {
   const { selectedChannelId } = useChannelContext();
   const { showToast } = useToast();
+  const showOwner = useShowOwnerColumn();
+  const ownerLabel = useOwnerLabel();
   const [statusFilter, setStatusFilter] = useState<AnalysisJobStatus | "">("");
   const [jobs, setJobs] = useState<AnalysisJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +126,11 @@ export function JobsManager() {
                     <span className="text-sm text-slate-600 dark:text-slate-300">
                       Preset: {PRESET_LABELS[job.preset]}
                     </span>
+                    {showOwner ? (
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        Dono: {ownerLabel(job.owner_id)}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-3 text-sm">
                     <Link

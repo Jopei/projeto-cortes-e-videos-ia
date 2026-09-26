@@ -323,9 +323,10 @@ def render_clip(clip_id: str) -> dict[str, str]:
 
         # Storage keys are prefixed per-owner so a raw S3 listing already
         # reflects tenant boundaries (the DB `owner_id` column remains the
-        # actual source of truth/enforcement point — see CLAUDE.md
-        # "Multiusuário" for why tusd-originated uploads aren't prefixed the
-        # same way).
+        # actual source of truth/enforcement point). tusd-originated uploads
+        # get the same `users/{owner_id}/...` prefix too, assigned server-side
+        # by the `pre-create` hook — see CLAUDE.md "Auth" and
+        # `app/uploads_security.py::new_upload_object_id`.
         key_prefix = f"users/{clip.owner_id}/clips/{clip.id}"
         video_key = f"{key_prefix}/video.mp4"
         thumbnail_key = f"{key_prefix}/thumbnail.jpg"

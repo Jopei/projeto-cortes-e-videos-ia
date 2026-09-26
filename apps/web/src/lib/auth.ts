@@ -4,8 +4,14 @@ import { api } from "@/lib/api";
 export type UserRead = {
   id: string;
   username: string;
+  display_name: string | null;
+  email: string | null;
   is_active: boolean;
   is_admin: boolean;
+  must_change_password: boolean;
+  storage_quota_bytes: number | null;
+  daily_analysis_quota: number | null;
+  max_channels: number | null;
   created_at: string;
   last_login_at: string | null;
 };
@@ -25,6 +31,18 @@ export function logout(): Promise<void> {
 
 export function getCurrentUser(signal?: AbortSignal): Promise<UserRead> {
   return api.get<UserRead>("/api/auth/me", { signal });
+}
+
+export type ChangePasswordInput = {
+  current_password: string;
+  new_password: string;
+};
+
+/** Mirrors app/schemas/user.py::MIN_PASSWORD_LENGTH. */
+export const MIN_PASSWORD_LENGTH = 10;
+
+export function changePassword(payload: ChangePasswordInput): Promise<void> {
+  return api.post<void>("/api/auth/change-password", payload);
 }
 
 /**

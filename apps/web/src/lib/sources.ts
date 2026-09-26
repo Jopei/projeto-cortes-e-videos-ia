@@ -36,6 +36,7 @@ export type AllowedPlatform = (typeof ALLOWED_PLATFORM_OPTIONS)[number];
 /** Mirrors app/schemas/source.py::SourceRead. */
 export type Source = {
   id: string;
+  owner_id: string;
   title: string;
   work_name: string;
   license_type: LicenseType;

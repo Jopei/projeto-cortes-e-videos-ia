@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
+import { useOwnerLabel, useShowOwnerColumn } from "@/lib/admin-view";
 import { listAuditLog, type AuditLogEntry } from "@/lib/audit-log";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonList } from "@/components/ui/Skeleton";
@@ -13,6 +14,8 @@ export function AuditLogManager() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const showOwner = useShowOwnerColumn();
+  const ownerLabel = useOwnerLabel();
 
   const load = useCallback(async (currentOffset: number, signal?: AbortSignal) => {
     setLoading(true);
@@ -51,6 +54,7 @@ export function AuditLogManager() {
             <thead className="bg-slate-50 dark:bg-slate-900">
               <tr>
                 <th scope="col" className={thClass}>Data</th>
+                {showOwner ? <th scope="col" className={thClass}>Usuário</th> : null}
                 <th scope="col" className={thClass}>Ação</th>
                 <th scope="col" className={thClass}>Entidade</th>
                 <th scope="col" className={thClass}>Detalhes</th>
@@ -60,6 +64,7 @@ export function AuditLogManager() {
               {entries.map((entry) => (
                 <tr key={entry.id}>
                   <td className={tdClass}>{new Date(entry.created_at).toLocaleString("pt-BR")}</td>
+                  {showOwner ? <td className={tdClass}>{ownerLabel(entry.user_id)}</td> : null}
                   <td className={tdClass}>{entry.action}</td>
                   <td className={tdClass}>
                     {entry.entity}

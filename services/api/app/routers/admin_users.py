@@ -151,6 +151,13 @@ def update_user(
     demoting_or_deactivating = ("is_admin" in updates and updates["is_admin"] is False) or (
         "is_active" in updates and updates["is_active"] is False
     )
+    # Any change to admin privilege (either direction) or a deactivation
+    # revokes every existing session for the target user (see
+    # `app/models/user.py::session_version`) — reactivating an already-active
+    # user or leaving is_admin unchanged doesn't need it.
+    revoke_sessions = ("is_admin" in updates and updates["is_admin"] != target.is_admin) or (
+        "is_active" in updates and updates["is_active"] is False
+    )
     if demoting_or_deactivating and target.id == admin.id:
         raise HTTPException(status_code=409, detail="Cannot remove your own admin rights or deactivate yourself")
 
@@ -168,6 +175,9 @@ def update_user(
     for field in ("display_name", "email", "is_admin", "is_active", "daily_analysis_quota", "max_channels"):
         if field in updates:
             setattr(target, field, updates[field])
+
+    if revoke_sessions:
+        target.session_version += 1
 
     record_action(
         db,
@@ -195,6 +205,10 @@ def reset_password(
 
     target.password_hash = hash_password(payload.new_password)
     target.must_change_password = True
+    # Revoke every session issued to the target before this point — an admin
+    # reset means the old password (and any cookie signed while it was
+    # active) should stop working immediately.
+    target.session_version += 1
     record_action(
         db,
         user_id=admin.id,
@@ -223,6 +237,7 @@ def delete_user(
         if target.is_admin and target.is_active and _count_active_admins(db, exclude_id=target.id) == 0:
             raise HTTPException(status_code=409, detail="Cannot leave the system without any active admin")
         target.is_active = False
+        target.session_version += 1
         record_action(
             db,
             user_id=admin.id,

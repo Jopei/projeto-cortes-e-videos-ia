@@ -69,7 +69,7 @@ CREATE TABLE media_assets (
     source_id TEXT NOT NULL,
     channel_id TEXT,
     filename TEXT NOT NULL,
-    storage_key TEXT NOT NULL,
+    storage_key TEXT NOT NULL UNIQUE,
     duration REAL,
     size_bytes INTEGER,
     status TEXT NOT NULL DEFAULT 'uploaded',

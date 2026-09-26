@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { ApiError } from "@/lib/api";
+import { AS_USER_CHANGED_EVENT, ApiError } from "@/lib/api";
 import { CHANNEL_STORAGE_KEY, type Channel, listChannels } from "@/lib/channels";
 
 type ChannelContextValue = {
@@ -61,6 +61,18 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     setSelectedChannelIdState(id);
     window.localStorage.setItem(CHANNEL_STORAGE_KEY, id);
   }, []);
+
+  // Channels are per-user: when an admin switches "ver como" (or goes back
+  // to "todos"), the previously selected channel id almost certainly belongs
+  // to a different owner (or none) — drop the filter and refetch.
+  useEffect(() => {
+    function handleAsUserChanged() {
+      setSelectedChannelId("");
+      load();
+    }
+    window.addEventListener(AS_USER_CHANGED_EVENT, handleAsUserChanged);
+    return () => window.removeEventListener(AS_USER_CHANGED_EVENT, handleAsUserChanged);
+  }, [setSelectedChannelId, load]);
 
   const selectedChannel = useMemo(
     () => channels.find((c) => c.id === selectedChannelId) ?? null,

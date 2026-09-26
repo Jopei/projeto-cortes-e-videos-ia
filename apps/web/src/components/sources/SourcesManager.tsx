@@ -10,6 +10,7 @@ import {
   updateSource,
 } from "@/lib/sources";
 import { ApiError, formatApiErrorDetail } from "@/lib/api";
+import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { LicenseTypeBadge, SourceWarningBadges } from "@/components/sources/LicenseBadge";
 import { SourceForm } from "@/components/sources/SourceForm";
 
@@ -25,6 +26,8 @@ export function SourcesManager() {
   const [formMode, setFormMode] = useState<"closed" | "create" | Source>("closed");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const showOwner = useShowOwnerColumn();
+  const ownerLabel = useOwnerLabel();
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -145,6 +148,11 @@ export function SourcesManager() {
                 <th scope="col" className={thClass}>
                   Validade
                 </th>
+                {showOwner ? (
+                  <th scope="col" className={thClass}>
+                    Dono
+                  </th>
+                ) : null}
                 <th scope="col" className={thClass}>
                   Ações
                 </th>
@@ -164,6 +172,7 @@ export function SourcesManager() {
                   <td className={tdClass}>
                     {formatDate(source.valid_from)} – {formatDate(source.valid_until)}
                   </td>
+                  {showOwner ? <td className={tdClass}>{ownerLabel(source.owner_id)}</td> : null}
                   <td className={`${tdClass} space-x-3 whitespace-nowrap`}>
                     <button
                       type="button"

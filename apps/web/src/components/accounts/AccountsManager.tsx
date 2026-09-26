@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
+import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import {
   connectAccount,
   createAccount,
@@ -32,6 +33,8 @@ function channelName(channels: Channel[], id: string | null): string {
 export function AccountsManager() {
   const { channels } = useChannelContext();
   const { showToast } = useToast();
+  const showOwner = useShowOwnerColumn();
+  const ownerLabel = useOwnerLabel();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -262,6 +265,7 @@ export function AccountsManager() {
                   <th scope="col" className={thClass}>Conta</th>
                   <th scope="col" className={thClass}>Plataforma</th>
                   <th scope="col" className={thClass}>Canal</th>
+                  {showOwner ? <th scope="col" className={thClass}>Dono</th> : null}
                   <th scope="col" className={thClass}>Status</th>
                   <th scope="col" className={thClass}>Ações</th>
                 </tr>
@@ -281,6 +285,7 @@ export function AccountsManager() {
                         {channelName(channels, account.channel_id)}
                       </span>
                     </td>
+                    {showOwner ? <td className={tdClass}>{ownerLabel(account.owner_id)}</td> : null}
                     <td className={tdClass}>
                       <AccountStatusBadge status={account.status} />
                     </td>

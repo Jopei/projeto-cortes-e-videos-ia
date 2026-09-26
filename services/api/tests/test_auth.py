@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import uuid
 
+from app.models.user import User
 from app.rate_limit import login_rate_limiter
+from app.security import create_session_token
 
 
 def _hook_payload(hook_type: str, metadata: dict | None = None) -> dict:
@@ -146,3 +148,68 @@ def test_hook_pre_create_with_valid_cookie_but_unknown_source_is_rejected(client
     body = resp.json()
     assert body["RejectUpload"] is True
     assert body["HTTPResponse"]["StatusCode"] == 404
+
+
+# --- session revocation (session_version / `sv` claim) ----------------------
+
+
+def test_change_password_revokes_previously_issued_cookies(client, user, user_password, session_factory):
+    login = client.post("/api/auth/login", json={"username": user.username, "password": user_password})
+    assert login.status_code == 200
+
+    db = session_factory()
+    original_sv = db.get(User, user.id).session_version
+    db.close()
+    # A token signed with the pre-change-password session_version — stands in
+    # for "a cookie issued before this request" without depending on
+    # capturing the exact JWT string TestClient stored.
+    stale_token = create_session_token(user.id, user.username, original_sv)
+
+    resp = client.post(
+        "/api/auth/change-password",
+        json={"current_password": user_password, "new_password": "a-new-password-1"},
+    )
+    assert resp.status_code == 200
+
+    # change-password re-issues a fresh cookie for THIS session — it keeps working.
+    assert client.get("/api/auth/me").status_code == 200
+
+    # A cookie signed before the change (old `sv`) no longer works, even
+    # though it isn't expired.
+    client.cookies.set("cortes_session", stale_token)
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_logout_all_revokes_the_current_session_too(client, user, user_password):
+    client.post("/api/auth/login", json={"username": user.username, "password": user_password})
+    assert client.get("/api/auth/me").status_code == 200
+
+    resp = client.post("/api/auth/logout-all")
+    assert resp.status_code == 200
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_logout_all_requires_auth(client):
+    assert client.post("/api/auth/logout-all").status_code == 401
+
+
+def test_admin_reset_password_revokes_target_users_existing_session(admin_client, user, user_password, client):
+    client.post("/api/auth/login", json={"username": user.username, "password": user_password})
+    assert client.get("/api/auth/me").status_code == 200
+
+    resp = admin_client.post(
+        f"/api/admin/users/{user.id}/reset-password", json={"new_password": "brand-new-password-1"}
+    )
+    assert resp.status_code == 200
+
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_admin_promoting_user_revokes_their_existing_session(admin_client, user, user_password, client):
+    client.post("/api/auth/login", json={"username": user.username, "password": user_password})
+    assert client.get("/api/auth/me").status_code == 200
+
+    resp = admin_client.patch(f"/api/admin/users/{user.id}", json={"is_admin": True})
+    assert resp.status_code == 200
+
+    assert client.get("/api/auth/me").status_code == 401

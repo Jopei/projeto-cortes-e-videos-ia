@@ -1,4 +1,4 @@
-import { api, API_URL } from "@/lib/api";
+import { API_URL, api, withAsUserParam } from "@/lib/api";
 import type { AnalysisParams } from "@/lib/channels";
 import type { AnalysisJob, Preset } from "@/lib/jobs";
 
@@ -15,6 +15,7 @@ export const MEDIA_ASSET_STATUS_LABELS: Record<MediaAssetStatus, string> = {
 /** Mirrors app/schemas/media_asset.py::MediaAssetRead. */
 export type MediaAsset = {
   id: string;
+  owner_id: string;
   source_id: string;
   channel_id: string | null;
   filename: string;
@@ -38,7 +39,7 @@ export function updateMediaAsset(id: string, payload: { channel_id: string | nul
 }
 
 export function mediaAssetVideoUrl(id: string): string {
-  return `${API_URL}/api/media-assets/${id}/video`;
+  return withAsUserParam(`${API_URL}/api/media-assets/${id}/video`);
 }
 
 /** Mirrors app/schemas/analysis_job.py::AnalyzeRequest. */

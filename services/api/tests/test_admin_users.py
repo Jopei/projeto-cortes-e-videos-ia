@@ -192,3 +192,50 @@ def test_my_usage_endpoint(logged_in_client, user):
     body = resp.json()
     assert body["storage_used_bytes"] == 0
     assert body["channels_count"] == 0
+
+
+# --- session_version bumps (see tests/test_auth.py for the cookie-level behavior) ---
+
+
+def _session_version(session_factory, user_id) -> int:
+    db = session_factory()
+    value = db.get(User, user_id).session_version
+    db.close()
+    return value
+
+
+def test_reset_password_bumps_session_version(admin_client, user, session_factory):
+    before = _session_version(session_factory, user.id)
+    resp = admin_client.post(f"/api/admin/users/{user.id}/reset-password", json={"new_password": "brand-new-password-1"})
+    assert resp.status_code == 200
+    assert _session_version(session_factory, user.id) == before + 1
+
+
+def test_patch_is_admin_change_bumps_session_version(admin_client, user, session_factory):
+    before = _session_version(session_factory, user.id)
+    resp = admin_client.patch(f"/api/admin/users/{user.id}", json={"is_admin": True})
+    assert resp.status_code == 200
+    assert _session_version(session_factory, user.id) == before + 1
+
+
+def test_patch_is_active_false_bumps_session_version(admin_client, user, session_factory):
+    before = _session_version(session_factory, user.id)
+    resp = admin_client.patch(f"/api/admin/users/{user.id}", json={"is_active": False})
+    assert resp.status_code == 200
+    assert _session_version(session_factory, user.id) == before + 1
+
+
+def test_patch_unrelated_field_does_not_bump_session_version(admin_client, user, session_factory):
+    before = _session_version(session_factory, user.id)
+    resp = admin_client.patch(f"/api/admin/users/{user.id}", json={"display_name": "New Name"})
+    assert resp.status_code == 200
+    assert _session_version(session_factory, user.id) == before
+
+
+def test_soft_delete_bumps_session_version(admin_client, session_factory, user):
+    insert_channel(session_factory, owner_id=user.id, slug="tem-dados-sv")
+    before = _session_version(session_factory, user.id)
+
+    resp = admin_client.delete(f"/api/admin/users/{user.id}")
+    assert resp.status_code == 204
+    assert _session_version(session_factory, user.id) == before + 1

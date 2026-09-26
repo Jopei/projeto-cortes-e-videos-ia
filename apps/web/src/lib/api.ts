@@ -45,12 +45,50 @@ function currentLocationPath(): string | null {
 /** Login itself returning 401 (bad credentials) must not trigger a redirect loop. */
 const AUTH_LOGIN_PATH = "/api/auth/login";
 
+/**
+ * Admin "ver como outro usuário" state (see CLAUDE.md "Auth" / `app.scope`).
+ * Persisted to localStorage so it survives reloads; every `api.*` call below
+ * automatically attaches it as the `X-As-User` header. For the handful of
+ * plain URLs used as `<video src>`/`<img src>`/download links (no way to set
+ * a header there), use `withAsUserParam` to append `?as_user=` instead.
+ * Non-admins never have this set (see `lib/admin-view.tsx`), and the backend
+ * silently ignores it for non-admins either way.
+ */
+export const AS_USER_STORAGE_KEY = "cortes.as-user-id";
+/** Fired on every change so other contexts (e.g. the channel picker, which
+ * must reset when impersonation changes) can react without a hard reload. */
+export const AS_USER_CHANGED_EVENT = "cortes:as-user-changed";
+
+export function getAsUserId(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(AS_USER_STORAGE_KEY);
+}
+
+export function setAsUserId(id: string | null): void {
+  if (typeof window === "undefined") return;
+  if (id) window.localStorage.setItem(AS_USER_STORAGE_KEY, id);
+  else window.localStorage.removeItem(AS_USER_STORAGE_KEY);
+  window.dispatchEvent(new CustomEvent(AS_USER_CHANGED_EVENT, { detail: id }));
+}
+
+/** Appends `as_user=<id>` to a plain URL (never a header) when impersonating
+ * someone — for `<video src>`/`<img src>`/download links that `request()`
+ * below can't attach a header to. No-op when not impersonating. */
+export function withAsUserParam(url: string): string {
+  const asUser = getAsUserId();
+  if (!asUser) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}as_user=${asUser}`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const asUser = getAsUserId();
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...(asUser ? { "X-As-User": asUser } : {}),
       ...init?.headers,
     },
   });

@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     session_cookie_name: str = "cortes_session"
     session_ttl_days: int = 7
 
+    tusd_hook_secret: str | None = None
+    """Optional dedicated HMAC key for tusd upload tickets (see
+    app/uploads_security.py). When unset, a key is derived from `secret_key`
+    instead — this is only here so a deployment CAN rotate the upload-ticket
+    secret independently of the session-signing one, not because one is
+    required."""
+
     # --- Initial admin account (see `python -m app.cli create-admin`) ---
     admin_username: str | None = None
     admin_password: str | None = None

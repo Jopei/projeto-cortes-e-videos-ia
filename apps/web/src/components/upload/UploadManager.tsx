@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as tus from "tus-js-client";
 import { ApiError } from "@/lib/api";
+import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { useChannelContext } from "@/lib/channel-context";
 import {
   listMediaAssets,
@@ -53,6 +54,8 @@ function randomId(): string {
 export function UploadManager() {
   const { channels, selectedChannelId: globalChannelId } = useChannelContext();
   const { showToast } = useToast();
+  const showOwner = useShowOwnerColumn();
+  const ownerLabel = useOwnerLabel();
 
   const [sources, setSources] = useState<Source[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(true);
@@ -194,11 +197,14 @@ export function UploadManager() {
             return;
           }
           const serverMessage = detailed.originalResponse?.getBody?.();
-          updateItem(id, {
-            status: "error",
-            error: serverMessage?.trim() || error.message || "Falha no upload.",
-          });
-          setLiveMessage(`Erro ao enviar "${file.name}": ${serverMessage || error.message}`);
+          const message = serverMessage?.trim() || error.message || "Falha no upload.";
+          updateItem(id, { status: "error", error: message });
+          setLiveMessage(`Erro ao enviar "${file.name}": ${message}`);
+          if (status === 413) {
+            showToast(`Cota de armazenamento excedida ao enviar "${file.name}": ${message}`, "error");
+          } else {
+            showToast(`Erro ao enviar "${file.name}": ${message}`, "error");
+          }
         },
         onProgress: (bytesUploaded, bytesTotal) => {
           const refs = uploadsRef.current.get(id);
@@ -458,6 +464,11 @@ export function UploadManager() {
                   <th scope="col" className={thClass}>
                     Canal
                   </th>
+                  {showOwner ? (
+                    <th scope="col" className={thClass}>
+                      Dono
+                    </th>
+                  ) : null}
                   <th scope="col" className={thClass}>
                     Status
                   </th>
@@ -479,6 +490,7 @@ export function UploadManager() {
                     <td className={tdClass}>
                       {channels.find((c) => c.id === asset.channel_id)?.name ?? "—"}
                     </td>
+                    {showOwner ? <td className={tdClass}>{ownerLabel(asset.owner_id)}</td> : null}
                     <td className={tdClass}>{MEDIA_ASSET_STATUS_LABELS[asset.status]}</td>
                     <td className={tdClass}>
                       {new Date(asset.created_at).toLocaleString("pt-BR")}

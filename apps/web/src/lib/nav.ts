@@ -8,6 +8,8 @@ export type NavGroup = {
   label: string;
   href: string;
   items?: NavItem[];
+  /** Only rendered for `user.is_admin` (see components/Sidebar.tsx). */
+  adminOnly?: boolean;
 };
 
 export const navGroups: NavGroup[] = [
@@ -32,5 +34,12 @@ export const navGroups: NavGroup[] = [
     id: "encurtadores",
     label: "Encurtadores",
     href: "/encurtadores",
+  },
+  {
+    id: "administracao",
+    label: "Administração",
+    href: "/admin/usuarios",
+    adminOnly: true,
+    items: [{ href: "/admin/usuarios", label: "Usuários" }],
   },
 ];

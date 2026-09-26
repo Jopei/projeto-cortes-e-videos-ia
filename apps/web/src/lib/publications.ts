@@ -1,4 +1,4 @@
-import { api, API_URL } from "@/lib/api";
+import { API_URL, api, withAsUserParam } from "@/lib/api";
 import type { PlatformValue } from "@/lib/channels";
 
 /** Mirrors app/models/publication.py::PublicationStatus/Privacy. */
@@ -52,6 +52,7 @@ export function blockReasonLabel(reason: string): string {
 /** Mirrors app/schemas/publication.py::PublicationRead. */
 export type Publication = {
   id: string;
+  owner_id: string;
   clip_id: string;
   account_id: string;
   platform: PlatformValue;
@@ -114,5 +115,5 @@ export function takedownPublication(id: string): Promise<Publication> {
 }
 
 export function publicationExportUrl(id: string): string {
-  return `${API_URL}/api/publications/${id}/export`;
+  return withAsUserParam(`${API_URL}/api/publications/${id}/export`);
 }

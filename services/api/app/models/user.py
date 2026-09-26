@@ -41,5 +41,14 @@ class User(Base):
     storage_quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     daily_analysis_quota: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_channels: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    session_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    """Bumped to invalidate every JWT already issued for this user (they
+    carry the value in the `sv` claim, see `app/security.py` /
+    `app/deps.py::resolve_user_from_cookie`) without needing a server-side
+    session store. Incremented on: the user's own password change (which
+    also re-issues a fresh cookie for that same request, so the user isn't
+    logged out by their own action), an admin password reset, deactivation,
+    and any change to `is_admin` — see `app/routers/auth.py`/
+    `app/routers/admin_users.py`."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

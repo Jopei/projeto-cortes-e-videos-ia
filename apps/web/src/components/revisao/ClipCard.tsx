@@ -1,6 +1,7 @@
 "use client";
 
 import { CLIP_STATUS_LABELS, SIGNAL_LABELS, SIGNAL_NAMES, clipThumbnailUrl, type Clip } from "@/lib/clips";
+import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { ClipStatusBadge } from "@/components/ui/StatusBadges";
 import { formatDuration } from "@/lib/tus";
 
@@ -37,6 +38,8 @@ export function ClipCard({
   onOpenDetail: () => void;
 }) {
   const duration = clip.end_s - clip.start_s;
+  const showOwner = useShowOwnerColumn();
+  const ownerLabel = useOwnerLabel();
 
   return (
     <li
@@ -60,6 +63,10 @@ export function ClipCard({
         </label>
         <ClipStatusBadge status={clip.status} />
       </div>
+
+      {showOwner ? (
+        <p className="truncate text-xs text-slate-500 dark:text-slate-400">Dono: {ownerLabel(clip.owner_id)}</p>
+      ) : null}
 
       <button
         type="button"

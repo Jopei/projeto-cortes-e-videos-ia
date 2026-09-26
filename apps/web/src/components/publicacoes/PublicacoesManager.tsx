@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
+import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { useChannelContext } from "@/lib/channel-context";
 import { PLATFORM_LABELS, PLATFORM_VALUES, type PlatformValue } from "@/lib/channels";
 import {
@@ -35,6 +36,8 @@ const STATUS_OPTIONS: (PublicationStatus | "")[] = [
 export function PublicacoesManager() {
   const { selectedChannelId } = useChannelContext();
   const { showToast } = useToast();
+  const showOwner = useShowOwnerColumn();
+  const ownerLabel = useOwnerLabel();
   const [statusFilter, setStatusFilter] = useState<PublicationStatus | "">("");
   const [platformFilter, setPlatformFilter] = useState<PlatformValue | "">("");
   const [publications, setPublications] = useState<Publication[]>([]);
@@ -158,6 +161,7 @@ export function PublicacoesManager() {
             <thead className="bg-slate-50 dark:bg-slate-900">
               <tr>
                 <th scope="col" className={thClass}>Plataforma</th>
+                {showOwner ? <th scope="col" className={thClass}>Dono</th> : null}
                 <th scope="col" className={thClass}>Status</th>
                 <th scope="col" className={thClass}>Agendado para</th>
                 <th scope="col" className={thClass}>Publicado em</th>
@@ -169,6 +173,7 @@ export function PublicacoesManager() {
               {publications.map((pub) => (
                 <tr key={pub.id}>
                   <td className={tdClass}>{PLATFORM_LABELS[pub.platform]}</td>
+                  {showOwner ? <td className={tdClass}>{ownerLabel(pub.owner_id)}</td> : null}
                   <td className={tdClass}>
                     <PublicationStatusBadge status={pub.status} />
                   </td>

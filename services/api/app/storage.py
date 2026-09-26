@@ -25,6 +25,7 @@ class S3Body(Protocol):
 
 class S3Client(Protocol):
     def get_object(self, **kwargs: Any) -> dict[str, Any]: ...
+    def head_object(self, **kwargs: Any) -> dict[str, Any]: ...
 
 
 class S3ClientError(Exception):

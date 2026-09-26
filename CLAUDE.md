@@ -37,30 +37,84 @@ implementado em `services/api/app/security.py` (hash argon2 + JWT + cookie),
   credenciais inválidas; 429 após 5 tentativas falhas por IP+username em 15
   min (reseta no sucesso).
 - `POST /api/auth/logout` → limpa o cookie, sempre 200.
+- `POST /api/auth/logout-all` → requer sessão; incrementa
+  `users.session_version` do usuário atual (revogando TODAS as sessões,
+  inclusive a que fez a chamada) e limpa o cookie da requisição atual.
+  Sempre 200.
 - `GET /api/auth/me` → usuário autenticado ou 401.
 - Todas as rotas `/api/*` exigem sessão válida (dependência de router,
   `dependencies=[Depends(get_current_user)]`), **exceto**: `/api/health`,
   `/api/auth/login`, `/api/auth/logout` e o hook do tusd.
+- **Revogação de sessão (`users.session_version`, migration `0006`)**: o JWT
+  carrega um claim `sv` com o `session_version` do usuário no momento em que
+  foi emitido (`app/security.py::create_session_token`);
+  `app/deps.py::resolve_user_from_cookie` rejeita (trata como 401) qualquer
+  cookie cujo `sv` não bata com o valor atual em `users.session_version` —
+  inclusive um token sem o claim `sv` (formato pré-migration). Isso fecha a
+  falha de "sessão não revogada" auditada: antes, um cookie continuava
+  válido por até 7 dias mesmo depois do usuário trocar a própria senha ou um
+  admin resetar/desativar a conta. `session_version` é incrementado em:
+  troca da própria senha (`POST /api/auth/change-password` — que também
+  reemite um cookie novo válido para a própria requisição, então o usuário
+  não é deslogado pela própria ação), reset de senha por admin (`POST
+  /api/admin/users/{id}/reset-password`), qualquer mudança em `is_admin`
+  (`PATCH /api/admin/users/{id}`, em qualquer direção) e desativação
+  (`is_active=False`, seja via `PATCH` explícito ou via
+  `DELETE /api/admin/users/{id}` quando o usuário tem dados e é apenas
+  soft-deletado). `POST /api/auth/logout-all` também incrementa (ver acima).
 - Hook do tusd (`POST /api/uploads/tusd-hook`, público na rede interna):
   no evento `pre-create`, exige o mesmo cookie de sessão (tusd repassa o
   header `Cookie` do cliente via `-hooks-http-forward-headers=Cookie` no
   `docker-compose.yml`); sem sessão válida, responde `RejectUpload: true` +
   `HTTPResponse.StatusCode: 401` (o endpoint do hook em si sempre responde
-  HTTP 200, como exige o protocolo do tusd). **Risco residual conhecido**:
-  não há segredo estático entre tusd e o hook (a versão do tusd em uso não
-  tem flag para isso) e apenas `pre-create` valida sessão — `post-finish`/
-  `post-terminate` continuam alcançáveis por quem tiver acesso à porta da
-  API sem cookie, podendo criar `MediaAsset` "órfãos" apontando para
-  `storage_key` arbitrário (não expõe conteúdo, só polui a tabela). Mitigar
-  de verdade exigiria segmentar a rede (tusd/API sem porta pública, atrás de
-  proxy) — fora do escopo deste especialista, sinalizar para
-  pipeline-specialist/production-ops se virar prioridade.
+  HTTP 200, como exige o protocolo do tusd). Em caso de sucesso, o
+  `pre-create` também define `ChangeFileInfo.ID` (tusd v2.10+ suporta —
+  confirmado lendo o código-fonte da versão em uso) para um id
+  server-side prefixado por dono (`users/{owner_id}/{uuid4hex}` —
+  `app/uploads_security.py::new_upload_object_id`), que o `s3store` do tusd
+  usa como a própria chave S3 do objeto final; e adiciona em
+  `ChangeFileInfo.MetaData` um `upload_ticket` = HMAC-SHA256 (chave
+  `TUSD_HOOK_SECRET`, ou derivada de `SECRET_KEY` se não configurada) sobre
+  `f"{object_id}|{owner_id}|{source_id}|{channel_id or ''}"`. Qualquer
+  `owner_id`/`upload_ticket` que o cliente já tenha incluído no metadata
+  original é descartado antes de acrescentar os valores reais. **Risco
+  residual corrigido (auditoria — era um IDOR crítico, não apenas
+  "polui a tabela")**: `post-finish`/`post-terminate` continuam
+  alcançáveis sem cookie por quem tiver acesso à porta da API na rede
+  interna (a versão do tusd em uso não tem um segredo estático
+  tusd↔hook, e só `pre-create` valida sessão) — só que agora, em vez de
+  confiar em `owner_id`/`source_id`/`Storage.Key` do corpo da requisição,
+  `post-finish` (a) reconstrói o `upload_ticket` esperado a partir de
+  `Upload.ID` + `Upload.MetaData` e compara com `hmac.compare_digest`; (b)
+  exige que o `object_id` extraído de `Upload.ID` comece com
+  `users/{owner_id}/`; (c) deriva `storage_key` **somente** do `object_id`
+  (nunca do `Storage.Key` do payload, que é ignorado além de um log se
+  divergir); (d) confirma com `head_object` que o objeto existe no S3 e usa
+  o tamanho real dali para `size_bytes` (nunca `Upload.Size` do payload); e
+  (e) é idempotente por `storage_key` (unique constraint, migration `0006`)
+  — uma chamada repetida/replay retorna o `MediaAsset` já existente em vez
+  de duplicar. Uma chamada forjada direto contra a API (sem ter passado
+  pelo `pre-create` real) não consegue produzir um `upload_ticket` válido
+  sem conhecer o segredo do servidor, então não cria mais `MediaAsset`
+  nenhum — nem "órfão" nem, como o PoC da auditoria demonstrou ser possível
+  antes desta correção, apontando para o objeto de **outro usuário**
+  (a alegação anterior de que isso "não expõe conteúdo" estava errada: o
+  `MediaAsset` forjado ficava visível/reproduzível via
+  `GET /api/media-assets/{id}/video` para quem o criou). A parte puramente
+  de rede (alcançável sem cookie) continua — mitigar de verdade exigiria
+  segmentar a rede (tusd/API sem porta pública, atrás de proxy) — fora do
+  escopo deste especialista, sinalizar para pipeline-specialist/
+  production-ops se virar prioridade.
 - Admin inicial: `python -m app.cli create-admin` (dentro do container
   `api`) cria o usuário a partir de `ADMIN_USERNAME`/`ADMIN_PASSWORD` (não
   sobrescreve senha existente; use `--reset` para trocar). Não é criado
   automaticamente no startup do FastAPI, de propósito.
 - `SECRET_KEY` é obrigatório e precisa ter 32+ caracteres — a API recusa
   subir sem isso (`app/config.py::Settings._require_secret_key`).
+  `TUSD_HOOK_SECRET` é opcional — quando ausente, a chave do HMAC do
+  `upload_ticket` acima é derivada de `SECRET_KEY` (não a reaproveita
+  diretamente), então nenhum deploy existente precisa definir uma env var
+  nova para ganhar a correção.
 - Testes de auth usam SQLite em memória (`services/api/tests/conftest.py`);
   `Source`/`MediaAsset` usam tipos só-Postgres (`ARRAY`, `UUID`) que não
   compilam DDL em SQLite, então a tabela `sources` de teste é criada via SQL
@@ -366,28 +420,31 @@ são por usuário, com admin sempre isento.
   dono** (`Scope.create_owner_id`) e só enxerga clips/contas desse dono —
   publicar o clip de um usuário na conta de outro é impossível mesmo para
   admin sem `as_user` (nesse caso o dono efetivo é o próprio admin).
-- **Hook do tusd** (`app/routers/uploads.py`): `pre-create` identifica o
+- **Hook do tusd** (`app/routers/uploads.py`, ver detalhe completo do
+  `upload_ticket`/`ChangeFileInfo.ID` em "Auth"): `pre-create` identifica o
   usuário pela sessão, valida que `source_id` (e `channel_id`, se enviado)
   pertencem a ele — ou a qualquer dono, se quem faz upload é admin, caso em
   que o `MediaAsset` final pertence ao dono da Source, nunca ao admin — e
   checa a cota de armazenamento (`Upload.Size` do evento) antes de aceitar.
-  A resposta do hook usa `ChangeFileInfo.MetaData` para acrescentar
-  `owner_id` ao metadata do upload; tusd ecoa esse metadata de volta no
-  `post-finish`, que **só** cria o `MediaAsset` se `metadata.owner_id` bate
-  com o dono real da `Source` (mismatch ou ausência → ignora silenciosamente,
-  não cria "órfão"). Isso fecha a parte do risco residual do tusd descrita
-  em "Auth" que dizia respeito a spoofing de dono; a parte de rede
+  `post-finish` só cria o `MediaAsset` depois de validar o `upload_ticket`
+  HMAC assinado pelo próprio `pre-create` (não apenas checar
+  `metadata.owner_id` contra o dono da `Source`, como antes) — isso fecha
+  tanto o spoofing de dono quanto o IDOR cross-tenant via `Storage.Key`
+  forjado (achado crítico da auditoria, ver "Auth"). A parte de rede
   (`post-finish`/`post-terminate` alcançáveis sem cookie) continua igual,
   pois é inerente à versão do tusd em uso.
-  **Prefixo de storage por usuário**: aplicado nos objetos que o worker cria
-  (`clips/.../video.mp4` → `users/{owner_id}/clips/.../video.mp4`), mas
-  **não** nos uploads originais via tusd — a chave S3 de um upload tusd é o
-  `Upload.ID` gerado pelo próprio tusd, e a versão em uso não expõe uma
-  forma confiável de prefixá-la a partir do hook sem arriscar quebrar o
-  fluxo de upload existente. O isolamento real desses objetos continua
-  sendo o `owner_id` no banco (a rota de stream sempre resolve o
-  `MediaAsset`/`Clip` via `get_owned_or_404` antes de tocar o S3) — ver nota
-  em "Auth" sobre esse risco residual.
+  **Prefixo de storage por usuário**: aplicado tanto nos objetos que o
+  worker cria (`clips/.../video.mp4` → `users/{owner_id}/clips/.../video.mp4`)
+  quanto, agora, nos uploads originais via tusd — `pre-create` define
+  `ChangeFileInfo.ID = users/{owner_id}/{uuid4hex}` (tusd v2.10+ suporta
+  isso; a suposição anterior de que a versão em uso não tinha essa
+  capacidade estava incorreta) e o `s3store` do tusd usa esse valor
+  diretamente como a chave S3 do objeto final. O isolamento de acesso
+  continua sendo o `owner_id` no banco em primeiro lugar (a rota de stream
+  sempre resolve o `MediaAsset`/`Clip` via `get_owned_or_404` antes de tocar
+  o S3), mas o prefixo por dono agora também está refletido na própria
+  chave S3, então uma listagem crua do bucket já reflete a fronteira de
+  tenant — ver nota em "Auth" sobre o `upload_ticket`.
 - **Worker**: `run_analysis` copia `owner_id` do `AnalysisJob` para cada
   `Clip` criado; `render_clip` preenche `Clip.size_bytes` com o tamanho do
   arquivo renderizado. `ClipMetadata`/`Publication` (criadas por

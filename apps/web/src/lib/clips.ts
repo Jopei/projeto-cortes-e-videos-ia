@@ -1,4 +1,4 @@
-import { api, API_URL } from "@/lib/api";
+import { API_URL, api, withAsUserParam } from "@/lib/api";
 import type { PlatformValue } from "@/lib/channels";
 
 /** Mirrors app/models/clip.py::ClipStatus. */
@@ -27,6 +27,7 @@ export const SIGNAL_LABELS: Record<SignalName, string> = {
 /** Mirrors app/schemas/clip.py::ClipRead. */
 export type Clip = {
   id: string;
+  owner_id: string;
   job_id: string;
   media_asset_id: string;
   channel_id: string | null;
@@ -119,9 +120,9 @@ export function regenerateClipMetadata(
 }
 
 export function clipVideoUrl(id: string): string {
-  return `${API_URL}/api/clips/${id}/video`;
+  return withAsUserParam(`${API_URL}/api/clips/${id}/video`);
 }
 
 export function clipThumbnailUrl(id: string): string {
-  return `${API_URL}/api/clips/${id}/thumbnail`;
+  return withAsUserParam(`${API_URL}/api/clips/${id}/thumbnail`);
 }

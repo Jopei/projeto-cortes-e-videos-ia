@@ -57,3 +57,8 @@ class FakeS3Client:
             "ContentLength": len(chunk),
             "ContentRange": f"bytes {start}-{end}/{total}",
         }
+
+    def head_object(self, Bucket: str, Key: str) -> dict:
+        if Key not in self._objects:
+            raise FakeClientError("404")
+        return {"ContentLength": len(self._objects[Key])}

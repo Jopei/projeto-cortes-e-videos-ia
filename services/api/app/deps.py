@@ -17,6 +17,13 @@ def resolve_user_from_cookie(request: Request, db: Session) -> User | None:
     Returns None (never raises) so callers can decide how to react — used by
     both the `get_current_user` dependency (raises 401) and the tusd
     `pre-create` hook (rejects the upload with a 401 in `HTTPResponse`).
+
+    Also rejects a token whose `sv` claim doesn't match the user's current
+    `session_version` — this is how change-password/admin reset-password/
+    deactivation/is_admin changes revoke every cookie issued before that
+    point (see `app/security.py::create_session_token`, `app/models/user.py`).
+    A token with no `sv` claim at all (issued before this check existed) is
+    also rejected, forcing a fresh login rather than being silently trusted.
     """
     settings = get_settings()
     token = request.cookies.get(settings.session_cookie_name)
@@ -34,6 +41,8 @@ def resolve_user_from_cookie(request: Request, db: Session) -> User | None:
         return None
     user = db.get(User, user_id)
     if user is None or not user.is_active:
+        return None
+    if payload.get("sv") != user.session_version:
         return None
     return user
 

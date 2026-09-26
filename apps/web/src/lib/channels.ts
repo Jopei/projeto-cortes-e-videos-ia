@@ -43,6 +43,7 @@ export type ChannelCounts = {
 /** Mirrors app/schemas/channel.py::ChannelWithCounts. */
 export type Channel = {
   id: string;
+  owner_id: string;
   name: string;
   slug: string;
   niche: string | null;

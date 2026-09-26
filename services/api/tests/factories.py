@@ -88,7 +88,12 @@ def insert_source(
 
 
 def insert_media_asset(
-    session_factory, source_id: uuid.UUID, *, owner_id: uuid.UUID | None = None, size_bytes: int | None = None
+    session_factory,
+    source_id: uuid.UUID,
+    *,
+    owner_id: uuid.UUID | None = None,
+    size_bytes: int | None = None,
+    storage_key: str | None = None,
 ) -> uuid.UUID:
     owner = _resolve_owner(owner_id)
     new_id = uuid.uuid4()
@@ -103,7 +108,10 @@ def insert_media_asset(
             "owner_id": owner.hex,
             "source_id": source_id.hex,
             "filename": "t.mp4",
-            "storage_key": "media-assets/t.mp4",
+            # Unique per row by default (`media_assets.storage_key` has a
+            # unique constraint since migration 0006) — pass `storage_key`
+            # explicitly only when a test needs a specific/colliding value.
+            "storage_key": storage_key or f"media-assets/{new_id.hex}.mp4",
             "size_bytes": size_bytes,
             "created_at": datetime.now(timezone.utc).isoformat(),
         },

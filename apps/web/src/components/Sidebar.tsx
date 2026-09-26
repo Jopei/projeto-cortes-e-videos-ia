@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { navGroups } from "@/lib/nav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { ChannelPicker } from "@/components/channels/ChannelPicker";
-import { getCurrentUser, logout, type UserRead } from "@/lib/auth";
+import { AdminViewPicker } from "@/components/admin/AdminViewPicker";
+import { logout } from "@/lib/auth";
+import { useAuth } from "@/lib/user-context";
+import { displayNameOf } from "@/lib/admin-users";
+import { StorageMiniIndicator } from "@/components/account/StorageMiniIndicator";
 
 type SidebarProps = {
   onNavigate?: () => void;
@@ -16,19 +20,8 @@ type SidebarProps = {
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<UserRead | null>(null);
+  const { user } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    getCurrentUser(controller.signal)
-      .then((data) => setUser(data))
-      .catch(() => {
-        // lib/api.ts already redirects to /login on 401; anything else just
-        // leaves the user info blank.
-      });
-    return () => controller.abort();
-  }, []);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -40,6 +33,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       router.replace("/login");
     }
   }
+
+  const visibleGroups = navGroups.filter((group) => !group.adminOnly || user?.is_admin);
 
   return (
     <nav
@@ -54,8 +49,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
       <ChannelPicker />
 
+      {user?.is_admin ? <AdminViewPicker /> : null}
+
       <div className="flex flex-1 flex-col gap-6">
-        {navGroups.map((group) => {
+        {visibleGroups.map((group) => {
           const isSingleLink = !group.items || group.items.length === 0;
 
           return (
@@ -106,11 +103,17 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </div>
 
       <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
+        {!user?.is_admin ? <StorageMiniIndicator /> : null}
         {user ? (
           <div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
-            <span className="truncate" title={user.username}>
-              {user.username}
-            </span>
+            <Link
+              href="/conta"
+              onClick={onNavigate}
+              className="truncate font-medium text-slate-700 hover:underline dark:text-slate-200"
+              title={displayNameOf(user)}
+            >
+              {displayNameOf(user)}
+            </Link>
             <button
               type="button"
               onClick={handleLogout}

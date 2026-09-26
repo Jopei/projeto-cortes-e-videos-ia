@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ApiError } from "@/lib/api";
+import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { useChannelContext } from "@/lib/channel-context";
 import { PLATFORM_LABELS, PLATFORM_VALUES, type Channel, type ChannelInput, createChannel, deleteChannel, updateChannel } from "@/lib/channels";
 import { PRESET_LABELS } from "@/lib/jobs";
@@ -16,6 +17,8 @@ import { useToast } from "@/components/ui/Toast";
 export function ChannelsManager() {
   const { channels, loading, error, reload } = useChannelContext();
   const { showToast } = useToast();
+  const showOwner = useShowOwnerColumn();
+  const ownerLabel = useOwnerLabel();
   const [formMode, setFormMode] = useState<"closed" | "create" | Channel>("closed");
   const [deleteTarget, setDeleteTarget] = useState<Channel | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -109,6 +112,7 @@ export function ChannelsManager() {
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {channel.niche || "sem nicho definido"} · preset{" "}
                 {channel.default_preset ? PRESET_LABELS[channel.default_preset] : "não definido"}
+                {showOwner ? ` · dono: ${ownerLabel(channel.owner_id)}` : ""}
               </p>
 
               <div className="flex flex-wrap gap-1.5">
