@@ -23,8 +23,15 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 # (see requirements-worker.txt) that the API image doesn't need. ----
 FROM base AS worker
 
+# ffmpeg (cut/reframe/subtitles/loudnorm, built with libass so `-vf ass=...`
+# burns subtitles), libglib2.0-0 (opencv-python-headless's runtime dep even
+# though it's "headless" — cv2 still dlopen()s it), fonts-dejavu-core (a
+# concrete font file for libass to rasterize the burned-in subtitles with,
+# see app/worker/render/subtitles.py's Fontname).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    libglib2.0-0 \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements-worker.txt ./

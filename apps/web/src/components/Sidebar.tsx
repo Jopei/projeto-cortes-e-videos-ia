@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { navGroups } from "@/lib/nav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { StatusIndicator } from "@/components/StatusIndicator";
+import { ChannelPicker } from "@/components/channels/ChannelPicker";
 import { getCurrentUser, logout, type UserRead } from "@/lib/auth";
 
 type SidebarProps = {
@@ -50,6 +51,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           Projetos Cortes
         </span>
       </div>
+
+      <ChannelPicker />
 
       <div className="flex flex-1 flex-col gap-6">
         {navGroups.map((group) => {

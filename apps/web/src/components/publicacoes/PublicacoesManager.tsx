@@ -1,0 +1,274 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { ApiError } from "@/lib/api";
+import { useChannelContext } from "@/lib/channel-context";
+import { PLATFORM_LABELS, PLATFORM_VALUES, type PlatformValue } from "@/lib/channels";
+import {
+  PUBLICATION_STATUS_LABELS,
+  blockReasonLabel,
+  cancelPublication,
+  listPublications,
+  publicationExportUrl,
+  takedownPublication,
+  type Publication,
+  type PublicationStatus,
+} from "@/lib/publications";
+import { Dialog } from "@/components/ui/Dialog";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SkeletonList } from "@/components/ui/Skeleton";
+import { PublicationStatusBadge } from "@/components/ui/StatusBadges";
+import { useToast } from "@/components/ui/Toast";
+
+const STATUS_OPTIONS: (PublicationStatus | "")[] = [
+  "",
+  "blocked",
+  "scheduled",
+  "publishing",
+  "published",
+  "failed",
+  "canceled",
+  "taken_down",
+  "exported",
+];
+
+export function PublicacoesManager() {
+  const { selectedChannelId } = useChannelContext();
+  const { showToast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<PublicationStatus | "">("");
+  const [platformFilter, setPlatformFilter] = useState<PlatformValue | "">("");
+  const [publications, setPublications] = useState<Publication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actioningId, setActioningId] = useState<string | null>(null);
+  const [takedownTarget, setTakedownTarget] = useState<Publication | null>(null);
+
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await listPublications(
+          {
+            channel_id: selectedChannelId || undefined,
+            status: statusFilter || undefined,
+          },
+          signal,
+        );
+        setPublications(platformFilter ? data.filter((p) => p.platform === platformFilter) : data);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof ApiError ? err.message : "Não foi possível carregar as publicações.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedChannelId, statusFilter, platformFilter],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  async function handleCancel(pub: Publication) {
+    setActioningId(pub.id);
+    try {
+      await cancelPublication(pub.id);
+      showToast("Publicação cancelada.", "success");
+      load();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Erro ao cancelar publicação.", "error");
+    } finally {
+      setActioningId(null);
+    }
+  }
+
+  async function handleTakedown() {
+    if (!takedownTarget) return;
+    setActioningId(takedownTarget.id);
+    try {
+      await takedownPublication(takedownTarget.id);
+      showToast("Solicitação de retirada do ar enviada.", "success");
+      setTakedownTarget(null);
+      load();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Erro ao retirar do ar.", "error");
+    } finally {
+      setActioningId(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <label htmlFor="pub-status-filter" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Status
+          </label>
+          <select
+            id="pub-status-filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as PublicationStatus | "")}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+          >
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s || "all"} value={s}>
+                {s ? PUBLICATION_STATUS_LABELS[s] : "Todos"}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="pub-platform-filter" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Plataforma
+          </label>
+          <select
+            id="pub-platform-filter"
+            value={platformFilter}
+            onChange={(e) => setPlatformFilter(e.target.value as PlatformValue | "")}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+          >
+            <option value="">Todas</option>
+            {PLATFORM_VALUES.map((p) => (
+              <option key={p} value={p}>
+                {PLATFORM_LABELS[p]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {loading ? (
+        <SkeletonList rows={4} />
+      ) : error ? (
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      ) : publications.length === 0 ? (
+        <EmptyState
+          title="Nenhuma publicação encontrada"
+          description="Publique cortes aprovados na tela de Revisão para vê-los aqui."
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+            <caption className="sr-only">Publicações</caption>
+            <thead className="bg-slate-50 dark:bg-slate-900">
+              <tr>
+                <th scope="col" className={thClass}>Plataforma</th>
+                <th scope="col" className={thClass}>Status</th>
+                <th scope="col" className={thClass}>Agendado para</th>
+                <th scope="col" className={thClass}>Publicado em</th>
+                <th scope="col" className={thClass}>Erro / bloqueio</th>
+                <th scope="col" className={thClass}>Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+              {publications.map((pub) => (
+                <tr key={pub.id}>
+                  <td className={tdClass}>{PLATFORM_LABELS[pub.platform]}</td>
+                  <td className={tdClass}>
+                    <PublicationStatusBadge status={pub.status} />
+                  </td>
+                  <td className={tdClass}>
+                    {pub.scheduled_at ? new Date(pub.scheduled_at).toLocaleString("pt-BR") : "—"}
+                  </td>
+                  <td className={tdClass}>
+                    {pub.published_at ? new Date(pub.published_at).toLocaleString("pt-BR") : "—"}
+                  </td>
+                  <td className={`${tdClass} max-w-xs`}>
+                    {pub.block_reasons && pub.block_reasons.length > 0 ? (
+                      <ul className="list-disc pl-4 text-xs text-red-600 dark:text-red-400">
+                        {pub.block_reasons.map((r) => (
+                          <li key={r}>{blockReasonLabel(r)}</li>
+                        ))}
+                      </ul>
+                    ) : pub.error ? (
+                      <span className="text-xs text-red-600 dark:text-red-400">{pub.error}</span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className={`${tdClass} space-x-3 whitespace-nowrap`}>
+                    {pub.external_url ? (
+                      <a
+                        href={pub.external_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        Ver publicação
+                      </a>
+                    ) : null}
+                    {pub.status === "scheduled" ? (
+                      <button
+                        type="button"
+                        onClick={() => handleCancel(pub)}
+                        disabled={actioningId === pub.id}
+                        className="font-medium text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400"
+                      >
+                        Cancelar
+                      </button>
+                    ) : null}
+                    {pub.status === "published" ? (
+                      <button
+                        type="button"
+                        onClick={() => setTakedownTarget(pub)}
+                        className="font-medium text-red-600 hover:underline dark:text-red-400"
+                      >
+                        Retirar do ar
+                      </button>
+                    ) : null}
+                    {pub.status === "exported" ? (
+                      <a
+                        href={publicationExportUrl(pub.id)}
+                        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        Baixar pacote
+                      </a>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog open={takedownTarget !== null} onClose={() => setTakedownTarget(null)} title="Retirar do ar">
+        {takedownTarget ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-slate-700 dark:text-slate-200">
+              Tem certeza de que deseja retirar esta publicação do ar em{" "}
+              <span className="font-semibold">{PLATFORM_LABELS[takedownTarget.platform]}</span>? A
+              plataforma será notificada para remover o post publicado.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleTakedown}
+                disabled={actioningId === takedownTarget.id}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actioningId === takedownTarget.id ? "Enviando…" : "Retirar do ar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTakedownTarget(null)}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Dialog>
+    </div>
+  );
+}
+
+const thClass =
+  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300";
+const tdClass = "px-4 py-3 text-slate-800 dark:text-slate-100";

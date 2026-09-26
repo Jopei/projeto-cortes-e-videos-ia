@@ -2,13 +2,20 @@
 # requirements.txt, which both the `api` and `worker` targets install — see
 # Dockerfile). The worker stage also installs ffmpeg via apt.
 #
-# Nothing heavy is pinned yet on purpose: etapa B (motor de análise/render)
-# and etapa C (metadados LLM) will add what they actually need here, e.g.:
-#
-# opencv-python-headless   # motion/reframe (app/worker/analysis, app/worker/render)
-# pyscenedetect            # scene-cut density
-# librosa                  # audio loudness/onset analysis
-# faster-whisper           # speech transcription + subtitles
-# mediapipe                # face/subject tracking for the 9:16 reframe
-# anthropic                # LLM titles/descriptions/hashtags (etapa C)
-# ffmpeg-python            # thin wrapper around the ffmpeg CLI
+# mediapipe is intentionally NOT used for the 9:16 face-follow reframe: it
+# has no reliable prebuilt wheel for python 3.12 on slim/manylinux at the
+# time this was written. Face detection instead uses OpenCV's bundled Haar
+# cascade (`cv2.data.haarcascades`), which ships with opencv-python-headless
+# and needs no extra model download — see app/worker/render/reframe.py.
+
+numpy==2.1.3
+opencv-python-headless==4.10.0.84
+scenedetect==0.6.4
+# faster-whisper's model-download code (faster_whisper/utils.py) imports
+# `requests` directly and expects huggingface_hub's pre-1.0 API; pin both so
+# a future huggingface_hub major bump (which dropped the `requests`
+# dependency in favor of httpx) doesn't break the image at build time.
+requests==2.32.3
+huggingface-hub==0.25.2
+faster-whisper==1.0.3
+anthropic==0.39.0

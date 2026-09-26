@@ -53,6 +53,20 @@ class Settings(BaseSettings):
     admin_username: str | None = None
     admin_password: str | None = None
 
+    # --- Analysis/render engine (app/worker/analysis, app/worker/render) ---
+    whisper_enabled: bool = True
+    """Turn speech transcription (faster-whisper) off entirely — used for
+    fast local iteration or when a video has no dialogue. When False, the
+    `speech`/`llm` signals are all zero and no transcript/subtitles exist."""
+    whisper_model: str = "small"
+    """faster-whisper model size (tiny|base|small|medium|large-v3, ...). Runs
+    on CPU with int8 compute (see app/worker/analysis/speech.py) — bigger
+    models are slower but more accurate; `small` is the default trade-off."""
+    worker_tmp_dir: str = "/tmp/cortes-worker"
+    """Scratch directory for downloads/intermediate ffmpeg output. Always
+    cleaned up per-task (see app/worker/analysis/pipeline.py, app/worker/
+    render/pipeline.py) — nothing here is meant to survive a task."""
+
     @model_validator(mode="after")
     def _require_secret_key(self) -> "Settings":
         if not self.secret_key or len(self.secret_key) < 32:

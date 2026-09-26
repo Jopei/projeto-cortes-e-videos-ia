@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeScript } from "@/components/ThemeScript";
 import { AppShell } from "@/components/AppShell";
+import { ChannelProvider } from "@/lib/channel-context";
+import { ToastProvider } from "@/components/ui/Toast";
 
 export const metadata: Metadata = {
   title: "Projetos Cortes",
@@ -20,7 +22,11 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased dark:bg-slate-900 dark:text-slate-100">
-        <AppShell>{children}</AppShell>
+        <ToastProvider>
+          <ChannelProvider>
+            <AppShell>{children}</AppShell>
+          </ChannelProvider>
+        </ToastProvider>
       </body>
     </html>
   );

@@ -11,7 +11,7 @@ export function middleware(request: NextRequest) {
 
   if (pathname === "/login") {
     if (hasSession) {
-      return NextResponse.redirect(new URL("/cortes/upload", request.url));
+      return NextResponse.redirect(new URL("/cortes", request.url));
     }
     return NextResponse.next();
   }

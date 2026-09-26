@@ -14,8 +14,10 @@ export const navGroups: NavGroup[] = [
   {
     id: "cortes",
     label: "Cortes",
-    href: "/cortes/upload",
+    href: "/cortes",
     items: [
+      { href: "/cortes", label: "Visão geral" },
+      { href: "/cortes/canais", label: "Canais" },
       { href: "/cortes/upload", label: "Upload" },
       { href: "/cortes/fontes-licencas", label: "Fontes & Licenças" },
       { href: "/cortes/jobs", label: "Jobs" },
@@ -23,6 +25,7 @@ export const navGroups: NavGroup[] = [
       { href: "/cortes/publicacoes", label: "Publicações" },
       { href: "/cortes/contas", label: "Contas" },
       { href: "/cortes/agenda", label: "Agenda" },
+      { href: "/cortes/auditoria", label: "Auditoria" },
     ],
   },
   {

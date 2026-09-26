@@ -39,6 +39,7 @@ export type Source = {
   title: string;
   work_name: string;
   license_type: LicenseType;
+  default_channel_id: string | null;
   proof_url: string | null;
   proof_file_key: string | null;
   allowed_platforms: string[];

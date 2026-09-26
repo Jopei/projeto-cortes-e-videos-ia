@@ -4,7 +4,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as tus from "tus-js-client";
 import { ApiError } from "@/lib/api";
-import { listMediaAssets, MEDIA_ASSET_STATUS_LABELS, type MediaAsset } from "@/lib/media-assets";
+import { useChannelContext } from "@/lib/channel-context";
+import {
+  listMediaAssets,
+  mediaAssetVideoUrl,
+  updateMediaAsset,
+  MEDIA_ASSET_STATUS_LABELS,
+  type MediaAsset,
+} from "@/lib/media-assets";
 import { listSources, type Source } from "@/lib/sources";
 import {
   ACCEPTED_EXTENSIONS,
@@ -13,6 +20,9 @@ import {
   formatDuration,
   hasAcceptedExtension,
 } from "@/lib/tus";
+import { AnalyzeDialog } from "@/components/upload/AnalyzeDialog";
+import { Dialog } from "@/components/ui/Dialog";
+import { useToast } from "@/components/ui/Toast";
 
 const CHUNK_SIZE = 50 * 1024 * 1024; // ~50MB per spec
 
@@ -41,10 +51,15 @@ function randomId(): string {
 }
 
 export function UploadManager() {
+  const { channels, selectedChannelId: globalChannelId } = useChannelContext();
+  const { showToast } = useToast();
+
   const [sources, setSources] = useState<Source[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(true);
   const [sourcesError, setSourcesError] = useState<string | null>(null);
   const [selectedSourceId, setSelectedSourceId] = useState<string>("");
+  const [uploadChannelId, setUploadChannelId] = useState<string>(globalChannelId);
+  const [uploadChannelTouched, setUploadChannelTouched] = useState(false);
 
   const [items, setItems] = useState<UploadItem[]>([]);
   const uploadsRef = useRef<Map<string, UploadRefs>>(new Map());
@@ -55,6 +70,24 @@ export function UploadManager() {
 
   const [isDragging, setIsDragging] = useState(false);
   const [liveMessage, setLiveMessage] = useState("");
+
+  const [analyzeTarget, setAnalyzeTarget] = useState<MediaAsset | null>(null);
+  const [videoTarget, setVideoTarget] = useState<MediaAsset | null>(null);
+  const [channelChangeTarget, setChannelChangeTarget] = useState<MediaAsset | null>(null);
+  const [pendingChannelId, setPendingChannelId] = useState<string>("");
+  const [savingChannel, setSavingChannel] = useState(false);
+
+  // Default the per-upload channel to the source's own default_channel_id
+  // once a source is picked (unless the user already touched the field).
+  useEffect(() => {
+    if (uploadChannelTouched) return;
+    const source = sources.find((s) => s.id === selectedSourceId);
+    if (source?.default_channel_id) {
+      setUploadChannelId(source.default_channel_id);
+    } else {
+      setUploadChannelId(globalChannelId);
+    }
+  }, [selectedSourceId, sources, globalChannelId, uploadChannelTouched]);
 
   const loadSources = useCallback(async (signal?: AbortSignal) => {
     setSourcesLoading(true);
@@ -72,21 +105,24 @@ export function UploadManager() {
     }
   }, []);
 
-  const loadAssets = useCallback(async (signal?: AbortSignal) => {
-    setAssetsLoading(true);
-    setAssetsError(null);
-    try {
-      const data = await listMediaAssets(signal);
-      setAssets(data);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setAssetsError(
-        err instanceof ApiError ? err.message : "Não foi possível carregar os uploads recebidos.",
-      );
-    } finally {
-      setAssetsLoading(false);
-    }
-  }, []);
+  const loadAssets = useCallback(
+    async (signal?: AbortSignal) => {
+      setAssetsLoading(true);
+      setAssetsError(null);
+      try {
+        const data = await listMediaAssets(globalChannelId || undefined, signal);
+        setAssets(data);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setAssetsError(
+          err instanceof ApiError ? err.message : "Não foi possível carregar os uploads recebidos.",
+        );
+      } finally {
+        setAssetsLoading(false);
+      }
+    },
+    [globalChannelId],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -139,6 +175,7 @@ export function UploadManager() {
           filename: file.name,
           filetype: file.type || "application/octet-stream",
           source_id: selectedSourceId,
+          ...(uploadChannelId ? { channel_id: uploadChannelId } : {}),
         },
         onBeforeRequest: (req) => {
           // tusd validates the same `cortes_session` cookie as the API; the
@@ -289,6 +326,31 @@ export function UploadManager() {
             </select>
           </div>
         )}
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="upload-channel-select" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Canal (opcional)
+          </label>
+          <select
+            id="upload-channel-select"
+            value={uploadChannelId}
+            onChange={(e) => {
+              setUploadChannelId(e.target.value);
+              setUploadChannelTouched(true);
+            }}
+            className="w-full max-w-md rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+          >
+            <option value="">Nenhum</option>
+            {channels.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Padrão: canal selecionado na barra lateral, ou o canal padrão da fonte (se houver).
+          </p>
+        </div>
       </section>
 
       <section aria-labelledby="step2-heading" className="flex flex-col gap-3">
@@ -394,10 +456,16 @@ export function UploadManager() {
                     Fonte
                   </th>
                   <th scope="col" className={thClass}>
+                    Canal
+                  </th>
+                  <th scope="col" className={thClass}>
                     Status
                   </th>
                   <th scope="col" className={thClass}>
                     Recebido em
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Ações
                   </th>
                 </tr>
               </thead>
@@ -408,9 +476,38 @@ export function UploadManager() {
                     <td className={tdClass}>
                       {sourceById.get(asset.source_id)?.title ?? asset.source_id}
                     </td>
+                    <td className={tdClass}>
+                      {channels.find((c) => c.id === asset.channel_id)?.name ?? "—"}
+                    </td>
                     <td className={tdClass}>{MEDIA_ASSET_STATUS_LABELS[asset.status]}</td>
                     <td className={tdClass}>
                       {new Date(asset.created_at).toLocaleString("pt-BR")}
+                    </td>
+                    <td className={`${tdClass} space-x-3 whitespace-nowrap`}>
+                      <button
+                        type="button"
+                        onClick={() => setVideoTarget(asset)}
+                        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        Ver vídeo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAnalyzeTarget(asset)}
+                        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        Analisar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingChannelId(asset.channel_id ?? "");
+                          setChannelChangeTarget(asset);
+                        }}
+                        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        Trocar canal
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -419,6 +516,90 @@ export function UploadManager() {
           </div>
         )}
       </section>
+
+      <AnalyzeDialog
+        mediaAsset={analyzeTarget}
+        channels={channels}
+        onClose={() => setAnalyzeTarget(null)}
+        onAnalyzed={() => {
+          showToast("Análise iniciada. Acompanhe o progresso em Jobs.", "success");
+          setAnalyzeTarget(null);
+          loadAssets();
+        }}
+      />
+
+      <Dialog
+        open={videoTarget !== null}
+        onClose={() => setVideoTarget(null)}
+        title={videoTarget ? `Vídeo: ${videoTarget.filename}` : "Vídeo"}
+        widthClassName="max-w-3xl"
+      >
+        {videoTarget ? (
+          // eslint-disable-next-line jsx-a11y/media-has-caption -- source video has no subtitle track guaranteed
+          <video controls className="w-full rounded-md bg-black" src={mediaAssetVideoUrl(videoTarget.id)} />
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={channelChangeTarget !== null}
+        onClose={() => setChannelChangeTarget(null)}
+        title="Trocar canal"
+      >
+        {channelChangeTarget ? (
+          <div className="flex flex-col gap-4">
+            <label htmlFor="change-channel-select" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              Canal para {channelChangeTarget.filename}
+            </label>
+            <select
+              id="change-channel-select"
+              value={pendingChannelId}
+              onChange={(e) => setPendingChannelId(e.target.value)}
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+            >
+              <option value="">Nenhum</option>
+              {channels.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={savingChannel}
+                onClick={async () => {
+                  setSavingChannel(true);
+                  try {
+                    await updateMediaAsset(channelChangeTarget.id, {
+                      channel_id: pendingChannelId || null,
+                    });
+                    showToast("Canal atualizado.", "success");
+                    setChannelChangeTarget(null);
+                    loadAssets();
+                  } catch (err) {
+                    showToast(
+                      err instanceof ApiError ? err.message : "Erro ao trocar o canal.",
+                      "error",
+                    );
+                  } finally {
+                    setSavingChannel(false);
+                  }
+                }}
+                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingChannel ? "Salvando…" : "Salvar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setChannelChangeTarget(null)}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Dialog>
     </div>
   );
 }

@@ -1,3 +1,6 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "integration: exercises real ffmpeg/ffprobe (and, when available, OpenCV/PySceneDetect) against a synthetic generated video — skipped by default, run with `pytest -m integration`.",
+]
