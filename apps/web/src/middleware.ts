@@ -9,10 +9,9 @@ export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hasSession = request.cookies.has(SESSION_COOKIE);
 
+  // /login is always reachable: a stale cookie (expired or revoked) still
+  // "exists", and bouncing it back into the app caused a reload loop.
   if (pathname === "/login") {
-    if (hasSession) {
-      return NextResponse.redirect(new URL("/cortes", request.url));
-    }
     return NextResponse.next();
   }
 

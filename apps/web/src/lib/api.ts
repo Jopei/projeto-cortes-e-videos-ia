@@ -45,6 +45,27 @@ function currentLocationPath(): string | null {
 /** Login itself returning 401 (bad credentials) must not trigger a redirect loop. */
 const AUTH_LOGIN_PATH = "/api/auth/login";
 
+let redirectingToLogin = false;
+
+/**
+ * Sends the browser to /login after a 401. The session cookie is cleared
+ * first: a cookie the API no longer accepts (expired, revoked by a password
+ * change) would otherwise make the middleware bounce /login back into the
+ * app, which 401s again — an endless reload loop.
+ */
+export function redirectToLogin(): void {
+  if (typeof window === "undefined" || redirectingToLogin) return;
+  if (window.location.pathname === "/login") return;
+  redirectingToLogin = true;
+  const next = currentLocationPath();
+  const target = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
+  fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include" })
+    .catch(() => undefined)
+    .finally(() => {
+      window.location.href = target;
+    });
+}
+
 /**
  * Admin "ver como outro usuário" state (see CLAUDE.md "Auth" / `app.scope`).
  * Persisted to localStorage so it survives reloads; every `api.*` call below
@@ -94,10 +115,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (res.status === 401 && path !== AUTH_LOGIN_PATH) {
-    const current = currentLocationPath();
-    if (current && typeof window !== "undefined") {
-      window.location.href = `/login?next=${encodeURIComponent(current)}`;
-    }
+    redirectToLogin();
   }
 
   if (!res.ok) {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as tus from "tus-js-client";
-import { ApiError } from "@/lib/api";
+import { ApiError, redirectToLogin } from "@/lib/api";
 import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { useChannelContext } from "@/lib/channel-context";
 import {
@@ -192,8 +192,7 @@ export function UploadManager() {
           const status = detailed.originalResponse?.getStatus?.();
           if (status === 401) {
             updateItem(id, { status: "error", error: "Sessão expirada. Faça login novamente." });
-            const next = `${window.location.pathname}${window.location.search}`;
-            window.location.href = `/login?next=${encodeURIComponent(next)}`;
+            redirectToLogin();
             return;
           }
           const serverMessage = detailed.originalResponse?.getBody?.();
