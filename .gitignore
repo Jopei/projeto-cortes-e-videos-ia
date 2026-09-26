@@ -1,0 +1,10 @@
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.venv/
+.env
+data/
+*.mp4
+*.mkv
+*.mov
