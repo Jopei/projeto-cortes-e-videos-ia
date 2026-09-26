@@ -17,6 +17,8 @@ GET_ENDPOINTS = [
     "/api/publications",
     "/api/audit-log",
     "/api/dashboard/summary",
+    "/api/channels",
+    f"/api/channels/{_RANDOM_ID}",
 ]
 
 POST_ENDPOINTS = [
@@ -28,6 +30,7 @@ POST_ENDPOINTS = [
     "/api/publications/batch",
     f"/api/publications/{_RANDOM_ID}/cancel",
     f"/api/publications/{_RANDOM_ID}/takedown",
+    "/api/channels",
 ]
 
 

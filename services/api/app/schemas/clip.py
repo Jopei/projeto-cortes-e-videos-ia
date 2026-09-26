@@ -16,6 +16,7 @@ class ClipRead(BaseModel):
     id: uuid.UUID
     job_id: uuid.UUID
     media_asset_id: uuid.UUID
+    channel_id: uuid.UUID | None
     start_s: float
     end_s: float
     score: float | None

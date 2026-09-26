@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Enum, Integer, String, Uuid, func
+from sqlalchemy import JSON, Boolean, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -39,8 +39,14 @@ class PlatformAccount(Base):
     """
 
     __tablename__ = "platform_accounts"
+    __table_args__ = (
+        UniqueConstraint("channel_id", "platform", name="uq_platform_accounts_channel_platform"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    channel_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     platform: Mapped[Platform] = mapped_column(platform_enum, nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     mode: Mapped[AccountMode] = mapped_column(

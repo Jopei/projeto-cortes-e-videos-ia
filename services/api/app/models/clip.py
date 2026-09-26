@@ -37,6 +37,9 @@ class Clip(Base):
     media_asset_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("media_assets.id"), nullable=False, index=True
     )
+    channel_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     start_s: Mapped[float] = mapped_column(Float, nullable=False)
     end_s: Mapped[float] = mapped_column(Float, nullable=False)
     score: Mapped[float | None] = mapped_column(Float, nullable=True)

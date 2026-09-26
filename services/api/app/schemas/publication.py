@@ -4,15 +4,29 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from app.models.enums import Platform
 from app.models.publication import Privacy, PublicationStatus
 
 
 class PublicationBatchRequest(BaseModel):
+    """Two mutually exclusive modes, picked by `target`:
+
+    - `target="accounts"` (default, backward compatible): publish every clip
+      in `clip_ids` to every account in `account_ids` (explicit pairing).
+    - `target="channel"`: `account_ids` must be omitted; each clip is
+      published to *every* PlatformAccount linked to that clip's own
+      `channel_id` (`account_ids` is ignored/forbidden in this mode since the
+      account set is derived per clip).
+
+    The rights gate (`app.rights.gate.check_publishable`) still runs for
+    every resulting (clip, account) pair in both modes.
+    """
+
     clip_ids: list[uuid.UUID]
-    account_ids: list[uuid.UUID]
+    account_ids: list[uuid.UUID] | None = None
+    target: Literal["accounts", "channel"] = "accounts"
     schedule: str = "auto"
     """"auto" (next free slot per account), "now", or an ISO-8601 datetime."""
     privacy: Privacy | None = None
@@ -29,6 +43,14 @@ class PublicationBatchRequest(BaseModel):
         except ValueError as exc:
             raise ValueError('schedule must be "auto", "now", or an ISO-8601 datetime') from exc
         return value
+
+    @model_validator(mode="after")
+    def _validate_target(self) -> "PublicationBatchRequest":
+        if self.target == "accounts" and not self.account_ids:
+            raise ValueError('account_ids is required when target="accounts"')
+        if self.target == "channel" and self.account_ids:
+            raise ValueError('account_ids must not be provided when target="channel"')
+        return self
 
 
 class PublicationRead(BaseModel):

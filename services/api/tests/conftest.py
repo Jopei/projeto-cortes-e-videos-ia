@@ -19,6 +19,7 @@ os.environ.setdefault("TOKEN_ENCRYPTION_KEY", "ASJwV0_SSFwawWjGMraqF4cZ5HfxIf7UD
 os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "true")
 
 import uuid  # noqa: E402
+from datetime import datetime, timezone  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -40,6 +41,7 @@ from app.security import hash_password  # noqa: E402
 SOURCES_TABLE_DDL = """
 CREATE TABLE sources (
     id TEXT PRIMARY KEY,
+    default_channel_id TEXT,
     title TEXT NOT NULL,
     work_name TEXT NOT NULL,
     license_type TEXT NOT NULL,
@@ -62,6 +64,7 @@ MEDIA_ASSETS_TABLE_DDL = """
 CREATE TABLE media_assets (
     id TEXT PRIMARY KEY,
     source_id TEXT NOT NULL,
+    channel_id TEXT,
     filename TEXT NOT NULL,
     storage_key TEXT NOT NULL,
     duration REAL,
@@ -76,12 +79,14 @@ CREATE TABLE media_assets (
 # DDL needed for these.
 from app.models.analysis_job import AnalysisJob  # noqa: E402
 from app.models.audit_log import AuditLog  # noqa: E402
+from app.models.channel import Channel  # noqa: E402
 from app.models.clip import Clip  # noqa: E402
 from app.models.clip_metadata import ClipMetadata  # noqa: E402
 from app.models.platform_account import PlatformAccount  # noqa: E402
 from app.models.publication import Publication  # noqa: E402
 
 NEW_MODEL_TABLES = [
+    Channel.__table__,
     AnalysisJob.__table__,
     Clip.__table__,
     ClipMetadata.__table__,
@@ -121,7 +126,7 @@ def session_factory(db_engine):
 
 
 @pytest.fixture()
-def client(session_factory):
+def client(session_factory, monkeypatch):
     def _override_get_db():
         db = session_factory()
         try:
@@ -130,6 +135,16 @@ def client(session_factory):
             db.close()
 
     app.dependency_overrides[get_db] = _override_get_db
+
+    # Celery tasks run eagerly (CELERY_TASK_ALWAYS_EAGER) and open their own
+    # session via `app.db.SessionLocal` (looked up dynamically, see
+    # app/worker/tasks.py) rather than the request-scoped `get_db` override
+    # above — point it at this test's engine too, so an eager task (e.g.
+    # `run_analysis` from `POST /media-assets/{id}/analyze`) sees the same
+    # tables/rows instead of a throwaway `sqlite://` of its own.
+    import app.db as db_module
+
+    monkeypatch.setattr(db_module, "SessionLocal", session_factory)
     login_rate_limiter._failures.clear()
     with TestClient(app) as test_client:
         yield test_client
@@ -158,8 +173,9 @@ def source_id(session_factory) -> uuid.UUID:
     db = session_factory()
     db.execute(
         text(
-            "INSERT INTO sources (id, title, work_name, license_type, allowed_platforms, territories, monetization_allowed)"
-            " VALUES (:id, :title, :work_name, :license_type, :ap, :te, 0)"
+            "INSERT INTO sources (id, title, work_name, license_type, allowed_platforms, territories,"
+            " monetization_allowed, created_at)"
+            " VALUES (:id, :title, :work_name, :license_type, :ap, :te, 0, :created_at)"
         ),
         {
             "id": new_id.hex,
@@ -168,6 +184,7 @@ def source_id(session_factory) -> uuid.UUID:
             "license_type": "cc_by",
             "ap": "",
             "te": "",
+            "created_at": datetime.now(timezone.utc).isoformat(),
         },
     )
     db.commit()
@@ -181,14 +198,15 @@ def media_asset_id(session_factory, source_id) -> uuid.UUID:
     db = session_factory()
     db.execute(
         text(
-            "INSERT INTO media_assets (id, source_id, filename, storage_key, status)"
-            " VALUES (:id, :source_id, :filename, :storage_key, 'ready')"
+            "INSERT INTO media_assets (id, source_id, filename, storage_key, status, created_at)"
+            " VALUES (:id, :source_id, :filename, :storage_key, 'ready', :created_at)"
         ),
         {
             "id": new_id.hex,
             "source_id": source_id.hex,
             "filename": "test.mp4",
             "storage_key": "media-assets/test.mp4",
+            "created_at": datetime.now(timezone.utc).isoformat(),
         },
     )
     db.commit()

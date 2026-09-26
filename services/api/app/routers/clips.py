@@ -27,6 +27,7 @@ def list_clips(
     status: ClipStatus | None = Query(default=None),
     job_id: uuid.UUID | None = Query(default=None),
     media_asset_id: uuid.UUID | None = Query(default=None),
+    channel_id: uuid.UUID | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -38,6 +39,8 @@ def list_clips(
         stmt = stmt.filter(Clip.job_id == job_id)
     if media_asset_id is not None:
         stmt = stmt.filter(Clip.media_asset_id == media_asset_id)
+    if channel_id is not None:
+        stmt = stmt.filter(Clip.channel_id == channel_id)
     return list(stmt.order_by(Clip.created_at.desc()).offset(offset).limit(limit).all())
 
 

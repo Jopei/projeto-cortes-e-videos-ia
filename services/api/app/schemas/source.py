@@ -12,6 +12,7 @@ class SourceBase(BaseModel):
     title: str
     work_name: str
     license_type: LicenseType
+    default_channel_id: uuid.UUID | None = None
     proof_url: str | None = None
     proof_file_key: str | None = None
     allowed_platforms: list[str] = []
@@ -30,6 +31,7 @@ class SourceUpdate(BaseModel):
     title: str | None = None
     work_name: str | None = None
     license_type: LicenseType | None = None
+    default_channel_id: uuid.UUID | None = None
     proof_url: str | None = None
     proof_file_key: str | None = None
     allowed_platforms: list[str] | None = None

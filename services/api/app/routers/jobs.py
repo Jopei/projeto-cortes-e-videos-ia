@@ -25,6 +25,7 @@ def list_presets() -> list[PresetWeights]:
 def list_jobs(
     status: AnalysisJobStatus | None = Query(default=None),
     media_asset_id: uuid.UUID | None = Query(default=None),
+    channel_id: uuid.UUID | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[AnalysisJob]:
     stmt = db.query(AnalysisJob)
@@ -32,6 +33,8 @@ def list_jobs(
         stmt = stmt.filter(AnalysisJob.status == status)
     if media_asset_id is not None:
         stmt = stmt.filter(AnalysisJob.media_asset_id == media_asset_id)
+    if channel_id is not None:
+        stmt = stmt.filter(AnalysisJob.channel_id == channel_id)
     return list(stmt.order_by(AnalysisJob.created_at.desc()).all())
 
 

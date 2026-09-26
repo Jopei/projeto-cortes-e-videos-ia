@@ -47,6 +47,9 @@ class AnalysisJob(Base):
     media_asset_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("media_assets.id"), nullable=False, index=True
     )
+    channel_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[AnalysisJobStatus] = mapped_column(
         Enum(AnalysisJobStatus, name="analysis_job_status", values_callable=lambda e: [m.value for m in e]),
         nullable=False,

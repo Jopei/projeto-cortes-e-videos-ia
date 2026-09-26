@@ -15,10 +15,12 @@ class PlatformAccountCreate(BaseModel):
 
     platform: Platform
     display_name: str
+    channel_id: uuid.UUID | None = None
 
 
 class PlatformAccountUpdate(BaseModel):
     display_name: str | None = None
+    channel_id: uuid.UUID | None = None
     daily_limit: int | None = None
     posting_windows: list[dict] | None = None
     timezone: str | None = None
@@ -32,6 +34,7 @@ class PlatformAccountRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    channel_id: uuid.UUID | None
     platform: Platform
     display_name: str
     mode: AccountMode

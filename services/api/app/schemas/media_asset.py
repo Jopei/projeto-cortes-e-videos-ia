@@ -13,8 +13,13 @@ class MediaAssetRead(BaseModel):
 
     id: uuid.UUID
     source_id: uuid.UUID
+    channel_id: uuid.UUID | None
     filename: str
     storage_key: str
     duration: float | None
     status: MediaAssetStatus
     created_at: datetime
+
+
+class MediaAssetUpdate(BaseModel):
+    channel_id: uuid.UUID | None = None

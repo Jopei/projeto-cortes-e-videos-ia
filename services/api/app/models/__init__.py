@@ -1,5 +1,6 @@
 from app.models.analysis_job import AnalysisJob, AnalysisJobStatus, Preset
 from app.models.audit_log import AuditLog
+from app.models.channel import Channel
 from app.models.clip import Clip, ClipStatus
 from app.models.clip_metadata import ClipMetadata
 from app.models.enums import Platform
@@ -14,6 +15,7 @@ __all__ = [
     "AnalysisJobStatus",
     "Preset",
     "AuditLog",
+    "Channel",
     "Clip",
     "ClipStatus",
     "ClipMetadata",

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.audit import record_action
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
+from app.models.channel import Channel
 from app.models.enums import Platform
 from app.models.platform_account import AccountMode, AccountStatus, PlatformAccount
 from app.models.user import User
@@ -75,8 +76,35 @@ def list_platforms() -> list[PlatformInfo]:
 
 
 @router.get("/accounts", response_model=list[PlatformAccountRead])
-def list_accounts(db: Session = Depends(get_db)) -> list[PlatformAccount]:
-    return list(db.query(PlatformAccount).order_by(PlatformAccount.created_at.desc()).all())
+def list_accounts(
+    channel_id: uuid.UUID | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[PlatformAccount]:
+    stmt = db.query(PlatformAccount)
+    if channel_id is not None:
+        stmt = stmt.filter(PlatformAccount.channel_id == channel_id)
+    return list(stmt.order_by(PlatformAccount.created_at.desc()).all())
+
+
+def _check_channel_platform_free(
+    db: Session, channel_id: uuid.UUID | None, platform: Platform, *, exclude_account_id: uuid.UUID | None = None
+) -> None:
+    """A channel can have at most one account per platform (`channel_id`
+    NULL rows are unconstrained — they just aren't linked to any channel).
+    Checked explicitly (rather than only relying on the DB unique
+    constraint, `uq_platform_accounts_channel_platform`) so callers get a
+    clean 409 instead of a raw IntegrityError/500."""
+    if channel_id is None:
+        return
+    if db.get(Channel, channel_id) is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    stmt = db.query(PlatformAccount).filter(
+        PlatformAccount.channel_id == channel_id, PlatformAccount.platform == platform
+    )
+    if exclude_account_id is not None:
+        stmt = stmt.filter(PlatformAccount.id != exclude_account_id)
+    if stmt.first() is not None:
+        raise HTTPException(status_code=409, detail="Channel already has an account for this platform")
 
 
 @router.post("/accounts", response_model=PlatformAccountRead, status_code=201)
@@ -85,9 +113,11 @@ def create_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> PlatformAccount:
+    _check_channel_platform_free(db, payload.channel_id, payload.platform)
     account = PlatformAccount(
         platform=payload.platform.value,
         display_name=payload.display_name,
+        channel_id=payload.channel_id,
         mode=AccountMode.MANUAL,
         status=AccountStatus.MANUAL,
     )
@@ -99,7 +129,7 @@ def create_account(
         action="account.create",
         entity="platform_account",
         entity_id=account.id,
-        details={"platform": payload.platform.value, "mode": "manual"},
+        details={"platform": payload.platform.value, "mode": "manual", "channel_id": str(payload.channel_id) if payload.channel_id else None},
     )
     db.commit()
     db.refresh(account)
@@ -121,15 +151,23 @@ def update_account(
     current_user: User = Depends(get_current_user),
 ) -> PlatformAccount:
     account = _get_account_or_404(db, account_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+
+    channel_changed = "channel_id" in updates and updates["channel_id"] != account.channel_id
+    if channel_changed:
+        _check_channel_platform_free(
+            db, updates["channel_id"], account.platform, exclude_account_id=account.id
+        )
+
+    for field, value in updates.items():
         setattr(account, field, value)
     record_action(
         db,
         user_id=current_user.id,
-        action="account.update",
+        action="account.link_channel" if channel_changed else "account.update",
         entity="platform_account",
         entity_id=account.id,
-        details=payload.model_dump(exclude_unset=True),
+        details=payload.model_dump(exclude_unset=True, mode="json"),
     )
     db.commit()
     db.refresh(account)

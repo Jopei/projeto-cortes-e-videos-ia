@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import resolve_user_from_cookie
+from app.models.channel import Channel
 from app.models.media_asset import MediaAsset
 from app.models.source import Source
 
@@ -54,6 +55,7 @@ async def tusd_hook(request: Request, db: Session = Depends(get_db)) -> Any:
     upload = payload.get("Event", {}).get("Upload", {})
     metadata = upload.get("MetaData") or {}
     source_id_raw = metadata.get("source_id")
+    channel_id_raw = metadata.get("channel_id")
 
     if hook_type == "pre-create":
         if resolve_user_from_cookie(request, db) is None:
@@ -66,15 +68,25 @@ async def tusd_hook(request: Request, db: Session = Depends(get_db)) -> Any:
             return _reject("metadata.source_id must be a valid UUID")
         if db.get(Source, source_uuid) is None:
             return _reject("metadata.source_id does not match an existing Source", status_code=404)
+        if channel_id_raw:
+            try:
+                channel_uuid = uuid.UUID(channel_id_raw)
+            except ValueError:
+                return _reject("metadata.channel_id must be a valid UUID")
+            if db.get(Channel, channel_uuid) is None:
+                return _reject("metadata.channel_id does not match an existing Channel", status_code=404)
         return {"HTTPResponse": {"StatusCode": 200}}
 
     if hook_type == "post-finish":
         if not source_id_raw:
             return _reject("metadata.source_id is required")
         source_uuid = uuid.UUID(source_id_raw)
+        source = db.get(Source, source_uuid)
+        channel_uuid = uuid.UUID(channel_id_raw) if channel_id_raw else (source.default_channel_id if source else None)
         storage_key = (upload.get("Storage") or {}).get("Key") or upload.get("ID")
         media_asset = MediaAsset(
             source_id=source_uuid,
+            channel_id=channel_uuid,
             filename=metadata.get("filename") or upload.get("ID"),
             storage_key=storage_key,
             duration=None,

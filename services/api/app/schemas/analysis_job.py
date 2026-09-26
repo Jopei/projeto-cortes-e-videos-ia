@@ -30,8 +30,16 @@ class AnalysisParams(BaseModel):
 
 
 class AnalyzeRequest(BaseModel):
-    preset: Preset
+    """`preset`/`params` are optional when the MediaAsset (or an explicit
+    `channel_id` override here) resolves to a Channel with
+    `default_preset`/`default_params` set — see
+    `app.channels.effective_analysis_defaults` and
+    `POST /api/media-assets/{id}/analyze`. If neither a channel default nor
+    an explicit `preset` is available, the request is rejected with 422."""
+
+    preset: Preset | None = None
     params: AnalysisParams | None = None
+    channel_id: uuid.UUID | None = None
 
 
 class AnalysisJobRead(BaseModel):
@@ -39,6 +47,7 @@ class AnalysisJobRead(BaseModel):
 
     id: uuid.UUID
     media_asset_id: uuid.UUID
+    channel_id: uuid.UUID | None
     status: AnalysisJobStatus
     progress: int
     stage: str | None

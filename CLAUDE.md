@@ -99,9 +99,10 @@ projetos_cortes/
    │  ├─ rate_limit.py        # rate limit em memória do login
    │  ├─ cli.py                # `python -m app.cli create-admin`
    │  ├─ models/              # Source, MediaAsset, User, AnalysisJob, Clip, ClipMetadata,
-   │  │                        # PlatformAccount, Publication, AuditLog, enums.py (Platform compartilhado)
+   │  │                        # PlatformAccount, Publication, AuditLog, Channel, enums.py (Platform compartilhado)
+   │  ├─ channels.py           # effective_template()/effective_analysis_defaults() (ver "Canais" abaixo)
    │  ├─ schemas/             # Pydantic (request/response) — um módulo por recurso
-   │  ├─ routers/             # health, auth, sources, media_assets, uploads, jobs, clips,
+   │  ├─ routers/             # health, auth, sources, channels, media_assets, uploads, jobs, clips,
    │  │                        # accounts, publications, audit_log, dashboard
    │  ├─ rights/gate.py       # rights gate (ver acima)
    │  ├─ rights/attribution.py # build_description(): sempre injeta attribution_text da Source
@@ -111,7 +112,8 @@ projetos_cortes/
    │     │                      # takedown_publication — todos STUBS nesta etapa (ver "Worker" abaixo)
    │     ├─ analysis/ render/ metadata/  # vazios, a preencher na etapa B/C
    │     └─ publishers/base.py # interface Publisher: upload, status, delete (movido de services/worker)
-   ├─ alembic/versions/        # 0001 sources+media_assets, 0002 users, 0003 analysis/clips/publishing
+   ├─ alembic/versions/        # 0001 sources+media_assets, 0002 users, 0003 analysis/clips/publishing,
+   │                            # 0004 channels
    └─ tests/                   # pytest — ver "Testes" abaixo
 ```
 
@@ -235,19 +237,101 @@ passa por `app/rights/attribution.py::build_description`), `GET /audit-log`,
 **Contrato de API estável a partir daqui** — qualquer mudança de campo/rota deve ser
 avisada explicitamente ao frontend-specialist (e às próximas etapas do backend).
 
+## Canais (multi-canal, migration `0004`)
+
+Suporte a múltiplos canais do usuário (ex.: vários canais de YouTube, cada um
+com um nicho/tipo de conteúdo diferente), cada canal podendo ter contas em
+outras plataformas.
+
+- **Channel** (`app/models/channel.py`): `id`, `name`, `slug` (único), `niche`
+  (texto livre), `color` (hex, para UI), `default_preset` (enum `Preset`,
+  opcional), `default_params` JSON (mesmo formato de `AnalysisJob.params`),
+  `template` JSON (mesmo formato de `PlatformAccount.template`: `language`,
+  `tone`, `fixed_hashtags`, `title_max`, `extra_description`), `is_active`,
+  `created_at`. Usa os tipos portáveis `sqlalchemy.Uuid`/`JSON` (roda em
+  SQLite nos testes, como `AnalysisJob`/`Clip`/etc — ver "Testes").
+- `PlatformAccount.channel_id` (FK nullable → `channels.id`, `ON DELETE SET
+  NULL`). Unique constraint `(channel_id, platform)` — um canal só pode ter
+  UMA conta por plataforma; contas com `channel_id IS NULL` não entram nessa
+  restrição (NULL é distinto de NULL em unique constraints, tanto em
+  Postgres quanto SQLite).
+- `MediaAsset.channel_id` (FK nullable) e `Source.default_channel_id` (FK
+  nullable, `ON DELETE SET NULL`).
+- `AnalysisJob.channel_id`/`Clip.channel_id` (FK nullable) — copiado do
+  `MediaAsset` (ou do `channel_id` explícito do request) no momento do
+  `POST /analyze`; ainda não populado por um pipeline real de criação de
+  `Clip` (etapa B, stub).
+- **Template efetivo**: `app/channels.py::effective_template(channel,
+  account)` faz merge raso `channel.template` + `account.template`, com a
+  conta sobrescrevendo em colisão de chave — usar isso (não duplicar a
+  lógica) sempre que a etapa de metadados (`app/worker/metadata`, ainda
+  stub) precisar do template de um par canal+conta.
+  `app/channels.py::effective_analysis_defaults(channel)` retorna
+  `(preset_value, params_dict)` para os defaults de análise do canal.
+
+Endpoints novos (todos sob `/api/*`, protegidos por `get_current_user`):
+
+- `GET /channels` / `GET /channels/{id}` → `ChannelWithCounts` (campos do
+  canal + `counts`: `accounts_by_platform` (dict por `Platform`),
+  `clips_pending_review`, `publications_scheduled`, `publications_published`
+  — contagens escopadas por `Clip.channel_id`/`PlatformAccount.channel_id`).
+- `POST /channels` (409 se `slug` duplicado), `PATCH /channels/{id}` (409 se
+  troca de `slug` colide com outro canal), `DELETE /channels/{id}` (**409**
+  se existir `Publication` com `status="scheduled"` cujo `Clip.channel_id`
+  seja o canal — cancele as publicações antes de excluir).
+- `PATCH /media-assets/{id}` `{channel_id}` (novo endpoint — antes só havia
+  GET/list/video/analyze neste router).
+- `POST /accounts` e `PATCH /accounts/{id}` aceitam `channel_id` — 404 se o
+  canal não existir, **409** se o canal já tiver uma conta para aquela
+  plataforma. `PATCH` que muda `channel_id` grava `account.link_channel` no
+  audit log (em vez de `account.update`).
+- `POST /media-assets/{id}/analyze`: `preset` e `params` agora são
+  **opcionais** no corpo — se omitidos, usam `channel.default_preset`/
+  `.default_params` do canal resolvido (`payload.channel_id` explícito, ou
+  senão `media_asset.channel_id`); se não houver canal nem `preset`
+  explícito, **422**. Novo campo opcional `channel_id` no request, que
+  sobrescreve o do `MediaAsset` só para aquele job (e é o valor persistido
+  em `AnalysisJob.channel_id`/`Clip.channel_id`).
+- `POST /publications/batch`: novo campo `target` (`"accounts"` default |
+  `"channel"`). Com `target="channel"`, `account_ids` **não** deve ser
+  enviado (422 se enviado) — cada clip é publicado em **todas** as
+  `PlatformAccount` vinculadas ao `Clip.channel_id` daquele clip (422 se
+  algum clip não tiver `channel_id`). O rights gate roda por par (clip,
+  conta) igual ao modo existente.
+- Filtro `channel_id` (query param) em `GET /clips`, `GET /jobs`,
+  `GET /publications` (via join com `Clip`, já que `Publication` não tem
+  `channel_id` próprio), `GET /media-assets`, `GET /accounts` e
+  `GET /dashboard/summary`.
+- Hook do tusd (`POST /api/uploads/tusd-hook`): `metadata.channel_id` agora
+  é aceito e opcional — `pre-create` valida que existe (404 se não);
+  `post-finish` usa `metadata.channel_id` se vier, senão
+  `source.default_channel_id`, para preencher `MediaAsset.channel_id`.
+- `AuditLog` novo: `channel.create`/`channel.update`/`channel.delete` e
+  `account.link_channel` (ver acima).
+
+**Contrato de API estável a partir daqui** — qualquer mudança de campo/rota
+deve ser avisada explicitamente ao frontend-specialist.
+
 ## Testes
 
 `services/api/tests/`: `conftest.py` cria as tabelas `sources`/`media_assets`
-via SQL cru (tipos só-Postgres) e as tabelas novas (`AnalysisJob`, `Clip`,
+via SQL cru (tipos só-Postgres, agora incluindo `default_channel_id`/
+`channel_id`) e as tabelas novas (`Channel`, `AnalysisJob`, `Clip`,
 `ClipMetadata`, `PlatformAccount`, `Publication`, `AuditLog`) via
 `Base.metadata.create_all()` — **por isso esses modelos usam
 `sqlalchemy.Uuid`/`JSON` genéricos em vez de `postgresql.UUID`/`ARRAY`**, de
 propósito, para rodar em SQLite nos testes e em Postgres em produção sem
 duas definições. `tests/factories.py` tem helpers (`insert_source`,
-`insert_media_asset`, `insert_clip`, `insert_account`) e `tests/fake_s3.py`
-um stub de cliente S3 (override de `app.storage.get_s3_client` via
-`app.dependency_overrides`) para testar Range/206 sem SeaweedFS real.
-`CELERY_TASK_ALWAYS_EAGER=true` nos testes evita depender de Redis.
+`insert_media_asset`, `insert_clip`, `insert_account`, `insert_channel`) e
+`tests/fake_s3.py` um stub de cliente S3 (override de
+`app.storage.get_s3_client` via `app.dependency_overrides`) para testar
+Range/206 sem SeaweedFS real. `CELERY_TASK_ALWAYS_EAGER=true` nos testes
+evita depender de Redis — e a fixture `client` faz
+`monkeypatch.setattr(app.db, "SessionLocal", session_factory)` para que uma
+task eager (ex. `run_analysis`, disparada de verdade por
+`POST /media-assets/{id}/analyze` nos testes de canais) enxergue as mesmas
+tabelas da sessão de teste em vez de abrir seu próprio `sqlite://` vazio
+(sem esse monkeypatch a chamada eager falha com "no such table").
 
 Cobertura nova: `test_publications_batch.py` (gate bloqueia clip não aprovado/
 CC-BY-ND/CC-BY-NC monetizado/plataforma fora de `allowed_platforms`; conta
@@ -256,11 +340,19 @@ manual → `exported`; conta oauth + `schedule=now` → `scheduled`),
 próximo dia da semana permitido, `daily_limit` empurra para o dia seguinte),
 `test_streaming.py` (200 corpo inteiro, 206 com `Content-Range` correto, 404
 objeto ausente, 401 sem sessão), `test_new_endpoints_permissions.py` (401 em
-todo endpoint novo sem cookie). A janela "fora de validade" do rights gate
-**não** é re-testada via HTTP (SQLite não faz round-trip de datetime
-timezone-aware do jeito que o Postgres real faz) — fica coberta só pelo
-teste puro já existente em `test_rights_gate.py`, que é a fonte de verdade
-daquela lógica de qualquer forma.
+todo endpoint novo sem cookie), `test_channels.py` (CRUD de canal + 409 de
+slug duplicado/publicação agendada; unique conta por plataforma por canal
+(inclusive múltiplas contas `channel_id=NULL` na mesma plataforma
+permitidas); herança de `default_preset`/`default_params` no `analyze`
+(com override explícito de `preset` e de `channel_id`, e 422 quando não há
+preset nem canal); `POST /publications/batch` com `target="channel"`
+(inclusive 422 sem `channel_id` no clip e 422 se `account_ids` for enviado
+junto); filtros `channel_id` em `/media-assets`, `/clips`, `/accounts` e
+`/dashboard/summary`). A janela "fora de validade" do rights gate **não** é
+re-testada via HTTP (SQLite não faz round-trip de datetime timezone-aware do
+jeito que o Postgres real faz) — fica coberta só pelo teste puro já
+existente em `test_rights_gate.py`, que é a fonte de verdade daquela lógica
+de qualquer forma.
 
 ## Convenções
 

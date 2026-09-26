@@ -48,10 +48,35 @@ def create_publications_batch(
     if missing_clips:
         raise HTTPException(status_code=404, detail=f"Clip(s) not found: {', '.join(missing_clips)}")
 
-    accounts = {a.id: a for a in db.query(PlatformAccount).filter(PlatformAccount.id.in_(payload.account_ids)).all()}
-    missing_accounts = [str(i) for i in payload.account_ids if i not in accounts]
-    if missing_accounts:
-        raise HTTPException(status_code=404, detail=f"Account(s) not found: {', '.join(missing_accounts)}")
+    # `pairs` is the flattened (clip, account) work list for both modes — see
+    # PublicationBatchRequest docstring for what target="accounts"/"channel" mean.
+    pairs: list[tuple[Clip, PlatformAccount]] = []
+    if payload.target == "channel":
+        missing_channel = [str(cid) for cid, clip in clips.items() if clip.channel_id is None]
+        if missing_channel:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Clip(s) without a channel_id, cannot use target=\"channel\": {', '.join(missing_channel)}",
+            )
+        channel_ids = {clip.channel_id for clip in clips.values()}
+        accounts_by_channel = {
+            cid: db.query(PlatformAccount).filter(PlatformAccount.channel_id == cid).all() for cid in channel_ids
+        }
+        for clip_id in payload.clip_ids:
+            clip = clips[clip_id]
+            for account in accounts_by_channel[clip.channel_id]:
+                pairs.append((clip, account))
+    else:
+        accounts = {
+            a.id: a for a in db.query(PlatformAccount).filter(PlatformAccount.id.in_(payload.account_ids)).all()
+        }
+        missing_accounts = [str(i) for i in payload.account_ids if i not in accounts]
+        if missing_accounts:
+            raise HTTPException(status_code=404, detail=f"Account(s) not found: {', '.join(missing_accounts)}")
+        for clip_id in payload.clip_ids:
+            clip = clips[clip_id]
+            for account_id in payload.account_ids:
+                pairs.append((clip, accounts[account_id]))
 
     now = datetime.now(timezone.utc)
     explicit_schedule: datetime | None = None
@@ -63,68 +88,68 @@ def create_publications_batch(
     extra_counts_by_account: dict[uuid.UUID, dict[date, int]] = {}
     created: list[Publication] = []
 
-    for clip_id in payload.clip_ids:
-        clip = clips[clip_id]
-        source = _resolve_source(db, clip)
+    sources_by_clip: dict[uuid.UUID, object] = {}
+    for clip_id, clip in clips.items():
+        sources_by_clip[clip_id] = _resolve_source(db, clip)
 
-        for account_id in payload.account_ids:
-            account = accounts[account_id]
-            publication = Publication(clip_id=clip.id, account_id=account.id, platform=account.platform)
+    for clip, account in pairs:
+        source = sources_by_clip[clip.id]
+        publication = Publication(clip_id=clip.id, account_id=account.id, platform=account.platform)
 
-            if clip.status != ClipStatus.APPROVED:
+        if clip.status != ClipStatus.APPROVED:
+            publication.status = PublicationStatus.BLOCKED
+            publication.block_reasons = ["clip_not_approved"]
+        else:
+            ok, reasons = check_publishable(source, account.platform.value, now, monetized=account.monetized)
+            if not ok:
                 publication.status = PublicationStatus.BLOCKED
-                publication.block_reasons = ["clip_not_approved"]
+                publication.block_reasons = reasons
+            elif account.mode == AccountMode.MANUAL:
+                publication.status = PublicationStatus.EXPORTED
+                publication.privacy = payload.privacy
             else:
-                ok, reasons = check_publishable(source, account.platform.value, now, monetized=account.monetized)
-                if not ok:
-                    publication.status = PublicationStatus.BLOCKED
-                    publication.block_reasons = reasons
-                elif account.mode == AccountMode.MANUAL:
-                    publication.status = PublicationStatus.EXPORTED
-                    publication.privacy = payload.privacy
+                publication.privacy = payload.privacy
+                if payload.schedule == "now":
+                    publication.status = PublicationStatus.SCHEDULED
+                    publication.scheduled_at = now
+                elif explicit_schedule is not None:
+                    publication.status = PublicationStatus.SCHEDULED
+                    publication.scheduled_at = explicit_schedule
                 else:
-                    publication.privacy = payload.privacy
-                    if payload.schedule == "now":
-                        publication.status = PublicationStatus.SCHEDULED
-                        publication.scheduled_at = now
-                    elif explicit_schedule is not None:
-                        publication.status = PublicationStatus.SCHEDULED
-                        publication.scheduled_at = explicit_schedule
+                    extra_counts = extra_counts_by_account.setdefault(account.id, {})
+                    try:
+                        slot = find_next_slot(
+                            db,
+                            account_id=account.id,
+                            posting_windows=account.posting_windows,
+                            daily_limit=account.daily_limit,
+                            timezone_name=account.timezone,
+                            after=now,
+                            extra_counts=extra_counts,
+                        )
+                    except NoSlotAvailableError as exc:
+                        publication.status = PublicationStatus.FAILED
+                        publication.error = str(exc)
                     else:
-                        extra_counts = extra_counts_by_account.setdefault(account.id, {})
-                        try:
-                            slot = find_next_slot(
-                                db,
-                                account_id=account.id,
-                                posting_windows=account.posting_windows,
-                                daily_limit=account.daily_limit,
-                                timezone_name=account.timezone,
-                                after=now,
-                                extra_counts=extra_counts,
-                            )
-                        except NoSlotAvailableError as exc:
-                            publication.status = PublicationStatus.FAILED
-                            publication.error = str(exc)
-                        else:
-                            publication.status = PublicationStatus.SCHEDULED
-                            publication.scheduled_at = slot
+                        publication.status = PublicationStatus.SCHEDULED
+                        publication.scheduled_at = slot
 
-            db.add(publication)
-            db.flush()
-            record_action(
-                db,
-                user_id=current_user.id,
-                action="publication.create",
-                entity="publication",
-                entity_id=publication.id,
-                details={
-                    "clip_id": str(clip.id),
-                    "account_id": str(account.id),
-                    "status": publication.status.value,
-                    "block_reasons": publication.block_reasons,
-                },
-            )
-            created.append(publication)
+        db.add(publication)
+        db.flush()
+        record_action(
+            db,
+            user_id=current_user.id,
+            action="publication.create",
+            entity="publication",
+            entity_id=publication.id,
+            details={
+                "clip_id": str(clip.id),
+                "account_id": str(account.id),
+                "status": publication.status.value,
+                "block_reasons": publication.block_reasons,
+            },
+        )
+        created.append(publication)
 
     db.commit()
     for publication in created:
@@ -137,9 +162,13 @@ def list_publications(
     status: PublicationStatus | None = Query(default=None),
     clip_id: uuid.UUID | None = Query(default=None),
     account_id: uuid.UUID | None = Query(default=None),
+    channel_id: uuid.UUID | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[Publication]:
     stmt = db.query(Publication)
+    if channel_id is not None:
+        # Publication has no channel_id of its own — scope it via its Clip.
+        stmt = stmt.join(Clip, Publication.clip_id == Clip.id).filter(Clip.channel_id == channel_id)
     if status is not None:
         stmt = stmt.filter(Publication.status == status)
     if clip_id is not None:

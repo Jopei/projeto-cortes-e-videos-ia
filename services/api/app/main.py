@@ -7,6 +7,7 @@ from app.routers import (
     accounts,
     audit_log,
     auth,
+    channels,
     clips,
     dashboard,
     health,
@@ -29,6 +30,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(sources.router)
+app.include_router(channels.router)
 app.include_router(media_assets.router)
 app.include_router(uploads.router)
 app.include_router(jobs.router)
