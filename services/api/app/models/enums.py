@@ -17,6 +17,7 @@ class Platform(str, enum.Enum):
     BILIBILI = "bilibili"
     INSTAGRAM = "instagram"
     FACEBOOK = "facebook"
+    VIMEO = "vimeo"
 
 
 # Single SQLAlchemy type instance so every column that uses it shares one

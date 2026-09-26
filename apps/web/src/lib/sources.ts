@@ -29,6 +29,7 @@ export const ALLOWED_PLATFORM_OPTIONS = [
   "bilibili",
   "instagram",
   "facebook",
+  "vimeo",
 ] as const;
 
 export type AllowedPlatform = (typeof ALLOWED_PLATFORM_OPTIONS)[number];

@@ -19,6 +19,18 @@ import { formatDuration } from "@/lib/tus";
 
 const TRIM_STEP = 0.5;
 
+/** Per-platform hard title length limits enforced in the UI (mirrors backend
+ * metadata rules, e.g. Vimeo caps titles at 128 chars). Platforms without an
+ * entry here have no enforced limit — only the character counter is shown. */
+const TITLE_MAX_LENGTH: Partial<Record<PlatformValue, number>> = {
+  vimeo: 128,
+};
+
+/** Vimeo has no hashtag concept — the same field is used as plain tags. */
+const HASHTAGS_FIELD_LABEL: Partial<Record<PlatformValue, string>> = {
+  vimeo: "Tags (separadas por vírgula)",
+};
+
 type EditableMetadata = {
   title: string;
   description: string;
@@ -167,6 +179,8 @@ export function ClipDetailDialog({
   }
 
   const titleCount = draft?.title.length ?? 0;
+  const titleMax = TITLE_MAX_LENGTH[activePlatform];
+  const hashtagsLabel = HASHTAGS_FIELD_LABEL[activePlatform] ?? "Hashtags (separadas por vírgula)";
 
   return (
     <Dialog open={clipId !== null} onClose={onClose} title="Detalhe do corte" widthClassName="max-w-4xl">
@@ -304,11 +318,19 @@ export function ClipDetailDialog({
                     <label htmlFor="meta-title" className="text-sm font-medium text-slate-700 dark:text-slate-200">
                       Título
                     </label>
-                    <span className="text-xs text-slate-400">{titleCount} caracteres</span>
+                    <span
+                      className={`text-xs ${
+                        titleMax && titleCount > titleMax ? "font-semibold text-red-600 dark:text-red-400" : "text-slate-400"
+                      }`}
+                    >
+                      {titleCount}
+                      {titleMax ? `/${titleMax}` : ""} caracteres
+                    </span>
                   </div>
                   <input
                     id="meta-title"
                     value={draft.title}
+                    maxLength={titleMax}
                     onChange={(e) =>
                       setMetadataDrafts((prev) => ({
                         ...prev,
@@ -339,7 +361,7 @@ export function ClipDetailDialog({
 
                 <div className="flex flex-col gap-1">
                   <label htmlFor="meta-hashtags" className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                    Hashtags (separadas por vírgula)
+                    {hashtagsLabel}
                   </label>
                   <input
                     id="meta-hashtags"

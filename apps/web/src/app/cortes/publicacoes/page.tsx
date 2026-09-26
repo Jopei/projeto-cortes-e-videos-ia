@@ -7,7 +7,7 @@ export default function PublicacoesPage() {
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">Publicações</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
           Histórico e status das publicações dos cortes aprovados em YouTube Shorts, TikTok,
-          Bilibili e Reels.
+          Bilibili, Reels e Vimeo.
         </p>
       </div>
 

@@ -14,7 +14,7 @@ class PublishResult:
 
 class Publisher(ABC):
     """Common interface every platform publisher must implement
-    (youtube.py, tiktok.py, bilibili.py, meta.py — Fase 5).
+    (youtube.py, tiktok.py, bilibili.py, meta.py, vimeo.py — Fase 5).
 
     Callers are expected to have already run the clip's Source through
     `check_publishable` in services/api/app/rights/gate.py and gotten

@@ -18,6 +18,7 @@ const PLATFORM_LABELS: Record<(typeof ALLOWED_PLATFORM_OPTIONS)[number], string>
   bilibili: "Bilibili",
   instagram: "Instagram",
   facebook: "Facebook",
+  vimeo: "Vimeo",
 };
 
 type FormState = {

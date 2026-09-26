@@ -165,7 +165,8 @@ projetos_cortes/
    │     ├─ tasks.py           # run_analysis, render_clip, regenerate_metadata, publish_clip,
    │     │                      # takedown_publication — todos STUBS nesta etapa (ver "Worker" abaixo)
    │     ├─ analysis/ render/ metadata/  # vazios, a preencher na etapa B/C
-   │     └─ publishers/base.py # interface Publisher: upload, status, delete (movido de services/worker)
+   │     └─ publishers/base.py  # interface Publisher: upload, status, delete (movido de services/worker)
+   │        publishers/vimeo.py # placeholder (NotImplementedError) — fluxo OAuth/tus documentado no docstring
    ├─ alembic/versions/        # 0001 sources+media_assets, 0002 users, 0003 analysis/clips/publishing,
    │                            # 0004 channels
    └─ tests/                   # pytest — ver "Testes" abaixo
@@ -266,9 +267,15 @@ Modelos novos em `services/api/app/models/` (migration `0003`):
   em toda ação relevante (criar/cancelar job, aprovar/rejeitar/editar clip, criar/cancelar/
   takedown de publicação, criar/editar/apagar conta).
 
-`Platform` (`youtube|tiktok|bilibili|instagram|facebook`) é um enum **compartilhado**
+`Platform` (`youtube|tiktok|bilibili|instagram|facebook|vimeo`) é um enum **compartilhado**
 (`app/models/enums.py::platform_enum`) entre `ClipMetadata`, `PlatformAccount` e
-`Publication` — mesmo tipo Postgres `platform` nas três tabelas.
+`Publication` — mesmo tipo Postgres `platform` nas três tabelas. `vimeo` foi
+adicionado na migration `0008` via `ALTER TYPE platform ADD VALUE` (dentro de
+`op.get_context().autocommit_block()` — Postgres não permite `ADD VALUE`
+dentro da transação padrão do Alembic); o `downgrade()` dessa migration
+recria o tipo do zero (renomeia, cria sem `vimeo`, `ALTER ... USING` nas três
+colunas, dropa o tipo antigo) e **falha com erro claro** se alguma linha
+ainda usa `'vimeo'` — não há remoção automática/silenciosa de dado.
 
 Endpoints principais (todos sob `/api/*`, protegidos por `get_current_user`):
 `POST /media-assets/{id}/analyze` (cria `AnalysisJob` + enfileira `run_analysis`),
@@ -511,8 +518,8 @@ nesta etapa: `owner_id` foi adicionado à resposta de `Source`, `MediaAsset`
 ## Integrações (chaves de API cadastráveis pelo admin, migration `0007`)
 
 Antes, as credenciais de YouTube/TikTok/Anthropic só existiam via `.env`. Um
-admin agora pode cadastrá-las (e as de Instagram/Facebook/Bilibili) pela UI,
-sem reiniciar nada — o efetivo é sempre "banco se existir, senão env".
+admin agora pode cadastrá-las (e as de Instagram/Facebook/Bilibili/Vimeo) pela
+UI, sem reiniciar nada — o efetivo é sempre "banco se existir, senão env".
 
 - **`IntegrationSetting`** (`app/models/integration_setting.py`): uma linha
   por `(integration_id, key)`, `value_encrypted` **sempre** cifrado (Fernet,
@@ -522,19 +529,21 @@ sem reiniciar nada — o efetivo é sempre "banco se existir, senão env".
   `(integration_id, key)`. Limpar um campo (string vazia/`null` no `PUT`, ou
   `DELETE` do recurso inteiro) **apaga a linha** em vez de gravar vazio — "sem
   linha" é o que significa "cai pro env".
-- **`app/integrations.py`**: registro das 6 integrações (`youtube`:
+- **`app/integrations.py`**: registro das 7 integrações (`youtube`:
   `client_id`+`client_secret`; `tiktok`: `client_key`+`client_secret`;
   `instagram`/`facebook`: `app_id`+`app_secret`; `bilibili`: `client_id`+
   `client_secret`, ambos **opcionais** — sem Open Platform aprovada ainda,
-  ver `PLATFORM_INFO` em `app/routers/accounts.py`; `anthropic`: `api_key`) e
-  `get_integration_value(integration_id, key)` — **a única função** que
-  resolve o valor efetivo (DB então env); usada em `app/routers/accounts.py`
-  (`GET /api/platforms` `configured`), `app/worker/tasks.py` (`run_analysis`,
-  `regenerate_metadata`) e qualquer OAuth futuro. Sem cache — abre uma sessão
-  curta por chamada, de propósito, para o worker (processo separado da API)
-  enxergar uma chave nova sem reiniciar. `Settings` (`app/config.py`) ganhou
-  `instagram_app_id/secret`, `facebook_app_id/secret`,
-  `bilibili_client_id/secret` e `public_api_url` (default
+  ver `PLATFORM_INFO` em `app/routers/accounts.py`; `vimeo`: `client_id`
+  (não-secreto)+`client_secret` (secreto), ambos **required**; `anthropic`:
+  `api_key`) e `get_integration_value(integration_id, key)` — **a única
+  função** que resolve o valor efetivo (DB então env); usada em
+  `app/routers/accounts.py` (`GET /api/platforms` `configured`),
+  `app/worker/tasks.py` (`run_analysis`, `regenerate_metadata`) e qualquer
+  OAuth futuro. Sem cache — abre uma sessão curta por chamada, de propósito,
+  para o worker (processo separado da API) enxergar uma chave nova sem
+  reiniciar. `Settings` (`app/config.py`) ganhou `instagram_app_id/secret`,
+  `facebook_app_id/secret`, `bilibili_client_id/secret`,
+  `vimeo_client_id/secret` e `public_api_url` (default
   `http://localhost:18000`) como fallback de env dessas mesmas chaves.
 - `GET /api/admin/integrations` / `GET /api/admin/integrations/{id}` →
   `{id, name, fields: [{key, label, secret, required}], values: {<key>:
@@ -552,10 +561,14 @@ sem reiniciar nada — o efetivo é sempre "banco se existir, senão env".
 - `POST /api/admin/integrations/{id}/test` → `{ok, message}` em PT.
   `anthropic`: chamada real barata (`GET https://api.anthropic.com/v1/models`
   via `urllib.request`, timeout 10s, sem dependência nova — o pacote
-  `anthropic` só está instalado na imagem `worker`, não na `api`); as demais
-  só validam formato/presença (ex. `youtube.client_id` termina em
-  `.apps.googleusercontent.com`) e avisam que o teste completo é ao clicar em
-  Conectar.
+  `anthropic` só está instalado na imagem `worker`, não na `api`). `vimeo`:
+  valida formato do `client_id` (hex, 32-64 chars) e faz uma chamada real
+  barata (`POST https://api.vimeo.com/oauth/authorize/client`, Basic auth
+  `client_id:client_secret`, `grant_type=client_credentials&scope=public`,
+  timeout 10s, `urllib.request`) — `200` é `ok=True`, `401` mensagem
+  específica de credenciais inválidas. As demais só validam formato/presença
+  (ex. `youtube.client_id` termina em `.apps.googleusercontent.com`) e
+  avisam que o teste completo é ao clicar em Conectar.
 - Todos admin-only (`require_admin`: 403 comum, 401 sem sessão).
 - `AuditLog`: `integration.update`/`integration.clear`, `details` só com
   `{integration_id, keys: [...]}` — nunca valores (nem em claro nem
@@ -635,13 +648,15 @@ soft- vs hard-delete, `change-password`, sessão de usuário desativado
 morre imediatamente, `/api/me/usage`).
 
 Cobertura de integrações: `test_integrations.py` (401/403 em todo endpoint;
-lista sempre com as 6 integrações; efetivo `env`/`db`/`mixed`/`null`;
+lista sempre com as 7 integrações; efetivo `env`/`db`/`mixed`/`null`;
 `configured` reflete `required` — inclusive `bilibili` vacuamente
 `configured=True` sem nada preenchido; mascaramento de secreto; `PUT`
 parcial preserva chave omitida; `strip()`; `""`/`null` limpa e volta pro
 env; chave desconhecida 422; `DELETE` limpa tudo; `GET /api/platforms`
-`configured` reflete integração; `POST .../test` para `anthropic` (sucesso/
-401/sem chave, HTTP mockado) e genérico (formato do `youtube.client_id`,
+inclui `vimeo` (`supports_oauth=True`, notes de monetização); `POST .../test`
+para `anthropic` (sucesso/401/sem chave, HTTP mockado), `vimeo` (formato de
+`client_id` inválido, sucesso/401 via `oauth/authorize/client` mockado,
+campo obrigatório faltando) e genérico (formato do `youtube.client_id`,
 campo obrigatório faltando); audit log nunca carrega o valor da chave).
 `IntegrationSetting` usa os mesmos tipos portáveis `sqlalchemy.Uuid`/`Text`
 que `Channel`/etc, então roda em SQLite nos testes sem DDL especial.
@@ -652,6 +667,15 @@ que `Channel`/etc, então roda em SQLite nos testes sem DDL especial.
 - Endpoints ficam em `app/routers/*`, um router por recurso, montados em `app/main.py`.
 - Schemas Pydantic (`app/schemas/*`) nunca são os modelos SQLAlchemy diretamente — sempre há uma camada de tradução.
 - Novo publisher de plataforma (`app/worker/publishers/*.py`) deve herdar de `Publisher` (base.py) e nunca reimplementar checagem de direitos — isso é responsabilidade exclusiva do rights gate, chamado antes do `upload()`.
+- `app/worker/metadata/pipeline.py` gera sempre o mesmo formato de `hashtags`
+  (`#`-prefixado) para todas as plataformas, inclusive `vimeo` — a API do
+  Vimeo usa `tags` sem `#`; a conversão é responsabilidade exclusiva do
+  publisher (`app/worker/publishers/vimeo.py::upload`, ainda não
+  implementado), não da etapa de metadados. `title_max` por plataforma tem
+  default de 100 chars (`DEFAULT_TITLE_MAX`), exceto `vimeo` = 128
+  (`_PLATFORM_TITLE_MAX_DEFAULT`); um `template["title_max"]` explícito
+  (channel/account) sempre tem prioridade. `#Shorts` só é adicionado para
+  `youtube`.
 - **Todo novo router que lê/escreve um recurso "dono-ável" (tiver ou herdar
   `owner_id`) usa `app/scope.py::get_scope`/`Scope.owned`/`get_owned_or_404`
   — nunca reimplementar o filtro de dono à mão nem checar `owner_id`

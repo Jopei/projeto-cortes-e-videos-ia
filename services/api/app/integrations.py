@@ -90,6 +90,14 @@ INTEGRATIONS: dict[str, IntegrationDef] = {
             IntegrationField("client_secret", "Client Secret", secret=True, required=False),
         ],
     ),
+    "vimeo": IntegrationDef(
+        id="vimeo",
+        name="Vimeo",
+        fields=[
+            IntegrationField("client_id", "Client ID", secret=False, required=True),
+            IntegrationField("client_secret", "Client Secret", secret=True, required=True),
+        ],
+    ),
     "anthropic": IntegrationDef(
         id="anthropic",
         name="Anthropic",
@@ -113,6 +121,8 @@ _ENV_ATTRS: dict[tuple[str, str], str] = {
     ("facebook", "app_secret"): "facebook_app_secret",
     ("bilibili", "client_id"): "bilibili_client_id",
     ("bilibili", "client_secret"): "bilibili_client_secret",
+    ("vimeo", "client_id"): "vimeo_client_id",
+    ("vimeo", "client_secret"): "vimeo_client_secret",
     ("anthropic", "api_key"): "anthropic_api_key",
 }
 

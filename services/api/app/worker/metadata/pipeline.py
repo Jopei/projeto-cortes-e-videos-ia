@@ -6,6 +6,16 @@ deterministic fallback when there's no `ANTHROPIC_API_KEY`).
 `fixed_hashtags` (list[str]), `title_max` (int), `extra_description` (str).
 None of them are required; every missing key has a sane default here.
 
+Vimeo note: Vimeo's own API takes plain `tags` (no `#` prefix), not
+hashtags — we deliberately do NOT special-case that here and keep
+generating the same `#`-prefixed `hashtags` list for every platform
+(minus the YouTube-only `#Shorts`, see `_fallback_hashtags`/
+`generate_metadata` below). The future `app/worker/publishers/vimeo.py`
+upload path is the one place responsible for stripping the leading `#`
+(and any other Vimeo-specific normalization) when it builds the `tags`
+field for the Vimeo API call — this module's output stays a single
+platform-agnostic shape.
+
 The description ALWAYS ends with the Source's attribution
 (`app.rights.attribution.build_description`) — callers must not skip that
 step, so `generate_metadata` does it internally rather than leaving it to
@@ -24,6 +34,18 @@ logger = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-5"
 DEFAULT_TITLE_MAX = 100
+
+_PLATFORM_TITLE_MAX_DEFAULT: dict[str, int] = {
+    "vimeo": 128,
+}
+"""Per-platform hard default for title length when the (channel, account)
+`template` doesn't set an explicit `title_max` — Vimeo allows longer titles
+(128 chars) than the generic 100-char default used elsewhere. An explicit
+`template["title_max"]` always wins over this."""
+
+
+def _title_max_for(template: dict, platform: str) -> int:
+    return template.get("title_max") or _PLATFORM_TITLE_MAX_DEFAULT.get(platform, DEFAULT_TITLE_MAX)
 
 
 def _clean_excerpt(transcript: str | None, *, max_chars: int = 600) -> str:
@@ -68,7 +90,7 @@ def fallback_metadata(
 ) -> tuple[str, str, list[str]]:
     """Deterministic title/description/hashtags — used when there's no
     `ANTHROPIC_API_KEY` or the LLM call fails. Never raises."""
-    title_max = template.get("title_max") or DEFAULT_TITLE_MAX
+    title_max = _title_max_for(template, platform)
     excerpt = _clean_excerpt(transcript)
     title = _fallback_title(work_name, excerpt, title_max)
     extra = (template.get("extra_description") or "").strip()
@@ -118,7 +140,7 @@ def llm_metadata(
         import anthropic
 
         client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
-        title_max = template.get("title_max") or DEFAULT_TITLE_MAX
+        title_max = _title_max_for(template, platform)
         fixed_hashtags = template.get("fixed_hashtags") or []
         prompt = _LLM_PROMPT.format(
             platform=platform,

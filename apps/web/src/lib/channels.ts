@@ -21,7 +21,7 @@ export type AnalysisParams = {
   reframe_mode?: "auto" | "blur" | "center";
 };
 
-export const PLATFORM_VALUES = ["youtube", "tiktok", "bilibili", "instagram", "facebook"] as const;
+export const PLATFORM_VALUES = ["youtube", "tiktok", "bilibili", "instagram", "facebook", "vimeo"] as const;
 export type PlatformValue = (typeof PLATFORM_VALUES)[number];
 
 export const PLATFORM_LABELS: Record<PlatformValue, string> = {
@@ -30,6 +30,7 @@ export const PLATFORM_LABELS: Record<PlatformValue, string> = {
   bilibili: "Bilibili",
   instagram: "Instagram Reels",
   facebook: "Facebook Reels",
+  vimeo: "Vimeo",
 };
 
 /** Mirrors app/schemas/channel.py::ChannelCounts. */

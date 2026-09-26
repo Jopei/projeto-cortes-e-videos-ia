@@ -1,5 +1,5 @@
 """Admin-only management of third-party integration credentials
-(youtube/tiktok/instagram/facebook/bilibili/anthropic) — lets an admin enter
+(youtube/tiktok/instagram/facebook/bilibili/vimeo/anthropic) — lets an admin enter
 these through the UI instead of only via `.env`. See `app/integrations.py`
 for the registry + effective-value (DB-then-env) resolution used by every
 other consumer (worker tasks, `GET /api/platforms`, future OAuth).
@@ -13,8 +13,11 @@ back to env again).
 
 from __future__ import annotations
 
+import base64
 import logging
+import re
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -211,6 +214,41 @@ def _test_anthropic() -> IntegrationTestResult:
         return IntegrationTestResult(ok=False, message="Falha ao conectar à Anthropic (timeout ou rede).")
 
 
+def _test_vimeo() -> IntegrationTestResult:
+    client_id = get_integration_value("vimeo", "client_id")
+    client_secret = get_integration_value("vimeo", "client_secret")
+    missing = [label for label, value in (("Client ID", client_id), ("Client Secret", client_secret)) if not value]
+    if missing:
+        return IntegrationTestResult(ok=False, message=f"Faltando: {', '.join(missing)}.")
+    if not re.fullmatch(r"[0-9a-fA-F]{32,64}", client_id or ""):
+        return IntegrationTestResult(
+            ok=False, message="Client ID não parece um Client ID válido do Vimeo (esperado uma string hexadecimal)."
+        )
+    credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+    req = urllib.request.Request(
+        "https://api.vimeo.com/oauth/authorize/client",
+        data=urllib.parse.urlencode({"grant_type": "client_credentials", "scope": "public"}).encode(),
+        headers={
+            "Authorization": f"Basic {credentials}",
+            "Accept": "application/vnd.vimeo.*+json;version=3.4",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if 200 <= resp.status < 300:
+                return IntegrationTestResult(ok=True, message="Conexão com o Vimeo bem-sucedida.")
+            return IntegrationTestResult(ok=False, message=f"Resposta inesperada do Vimeo (HTTP {resp.status}).")
+    except urllib.error.HTTPError as exc:
+        if exc.code == 401:
+            return IntegrationTestResult(ok=False, message="Credenciais do Vimeo inválidas (401).")
+        return IntegrationTestResult(ok=False, message=f"Falha ao chamar o Vimeo (HTTP {exc.code}).")
+    except Exception as exc:  # noqa: BLE001 - surface any failure as a plain test result
+        logger.warning("Vimeo integration test failed: %s", exc)
+        return IntegrationTestResult(ok=False, message="Falha ao conectar ao Vimeo (timeout ou rede).")
+
+
 def _test_generic(integration_id: str, definition) -> IntegrationTestResult:
     missing = [f.label for f in definition.fields if f.required and not get_integration_value(integration_id, f.key)]
     if missing:
@@ -231,4 +269,6 @@ def test_integration_settings(integration_id: str) -> IntegrationTestResult:
     definition = _get_def_or_404(integration_id)
     if integration_id == "anthropic":
         return _test_anthropic()
+    if integration_id == "vimeo":
+        return _test_vimeo()
     return _test_generic(integration_id, definition)

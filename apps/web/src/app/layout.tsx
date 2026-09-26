@@ -10,7 +10,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 export const metadata: Metadata = {
   title: "Projetos Cortes",
   description:
-    "Painel para gerar cortes verticais de vídeos licenciados e publicar em Shorts, TikTok, Bilibili e Reels.",
+    "Painel para gerar cortes verticais de vídeos licenciados e publicar em Shorts, TikTok, Bilibili, Reels e Vimeo.",
 };
 
 export default function RootLayout({

@@ -17,11 +17,11 @@ def test_integrations_requires_admin(logged_in_client):
     assert logged_in_client.post("/api/admin/integrations/youtube/test").status_code == 403
 
 
-def test_integrations_list_has_all_six(admin_client):
+def test_integrations_list_has_all_seven(admin_client):
     resp = admin_client.get("/api/admin/integrations")
     assert resp.status_code == 200
     ids = {item["id"] for item in resp.json()}
-    assert ids == {"youtube", "tiktok", "instagram", "facebook", "bilibili", "anthropic"}
+    assert ids == {"youtube", "tiktok", "instagram", "facebook", "bilibili", "vimeo", "anthropic"}
 
 
 def test_integrations_unknown_id_404(admin_client):
@@ -164,6 +164,75 @@ def test_platforms_configured_reflects_integration_settings(admin_client, monkey
     )
     platforms = {p["id"]: p for p in admin_client.get("/api/platforms").json()}
     assert platforms["youtube"]["configured"] is True
+
+
+def test_platforms_includes_vimeo(admin_client):
+    platforms = {p["id"]: p for p in admin_client.get("/api/platforms").json()}
+    assert platforms["vimeo"] == {
+        "id": "vimeo",
+        "name": "Vimeo",
+        "supports_oauth": True,
+        "configured": False,
+        "notes": "Vimeo API (upload via tus). Monetização no Vimeo não é por anúncios.",
+    }
+
+
+def test_integration_test_vimeo_missing_required(admin_client):
+    resp = admin_client.post("/api/admin/integrations/vimeo/test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False
+    assert "Faltando" in body["message"]
+
+
+def test_integration_test_vimeo_invalid_client_id_format(admin_client, monkeypatch):
+    monkeypatch.setattr(get_settings(), "vimeo_client_id", "not-hex")
+    monkeypatch.setattr(get_settings(), "vimeo_client_secret", "some-secret")
+    resp = admin_client.post("/api/admin/integrations/vimeo/test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False
+    assert "Vimeo" in body["message"]
+
+
+def test_integration_test_vimeo_success(admin_client, monkeypatch):
+    monkeypatch.setattr(get_settings(), "vimeo_client_id", "a" * 40)
+    monkeypatch.setattr(get_settings(), "vimeo_client_secret", "some-secret")
+
+    class _FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(
+        "app.routers.admin_integrations.urllib.request.urlopen", lambda req, timeout=10: _FakeResponse()
+    )
+
+    resp = admin_client.post("/api/admin/integrations/vimeo/test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert "sucesso" in body["message"].lower() or "sucedida" in body["message"].lower()
+
+
+def test_integration_test_vimeo_invalid_credentials(admin_client, monkeypatch):
+    monkeypatch.setattr(get_settings(), "vimeo_client_id", "a" * 40)
+    monkeypatch.setattr(get_settings(), "vimeo_client_secret", "some-secret")
+
+    def _raise_401(req, timeout=10):
+        raise urllib.error.HTTPError(req.full_url, 401, "Unauthorized", hdrs=None, fp=None)
+
+    monkeypatch.setattr("app.routers.admin_integrations.urllib.request.urlopen", _raise_401)
+
+    resp = admin_client.post("/api/admin/integrations/vimeo/test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False
+    assert "inválidas" in body["message"].lower() or "401" in body["message"]
 
 
 def test_integration_test_generic_missing_required(admin_client, monkeypatch):

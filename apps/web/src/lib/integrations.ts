@@ -8,6 +8,7 @@ export const INTEGRATION_IDS = [
   "instagram",
   "facebook",
   "bilibili",
+  "vimeo",
   "anthropic",
 ] as const;
 export type IntegrationId = (typeof INTEGRATION_IDS)[number];

@@ -22,8 +22,35 @@ def test_fallback_metadata_uses_work_name_and_transcript():
 def test_fallback_metadata_adds_shorts_hashtag_for_youtube_only():
     _, _, yt_hashtags = fallback_metadata(work_name="Sintel", transcript=None, template={}, platform="youtube")
     _, _, tiktok_hashtags = fallback_metadata(work_name="Sintel", transcript=None, template={}, platform="tiktok")
+    _, _, vimeo_hashtags = fallback_metadata(work_name="Sintel", transcript=None, template={}, platform="vimeo")
     assert "#Shorts" in yt_hashtags
     assert "#Shorts" not in tiktok_hashtags
+    assert "#Shorts" not in vimeo_hashtags
+
+
+def test_fallback_metadata_vimeo_allows_titles_up_to_128_chars_by_default():
+    title, _, _ = fallback_metadata(
+        work_name="A" * 200,
+        transcript=None,
+        template={},
+        platform="vimeo",
+    )
+    assert len(title) <= 128
+    assert len(title) > 100  # bigger than the generic default, confirming the vimeo-specific cap kicked in
+
+
+def test_generate_metadata_vimeo_has_no_shorts_and_ends_with_attribution():
+    title, description, hashtags = generate_metadata(
+        work_name="Big Buck Bunny",
+        transcript="A giant rabbit gets revenge on three bullies.",
+        template={"fixed_hashtags": ["#CCBY"]},
+        platform="vimeo",
+        attribution_text="Big Buck Bunny (c) copyright 2008, Blender Foundation. CC-BY 3.0",
+        api_key=None,
+    )
+    assert description.endswith("Big Buck Bunny (c) copyright 2008, Blender Foundation. CC-BY 3.0")
+    assert "#Shorts" not in hashtags
+    assert len(title) <= 128
 
 
 def test_fallback_metadata_truncates_long_titles():

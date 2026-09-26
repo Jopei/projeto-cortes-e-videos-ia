@@ -32,7 +32,7 @@ def test_create_and_get_channel_with_counts(logged_in_client):
     assert body["default_params"]["max_clips"] == 5
     assert body["template"]["fixed_hashtags"] == ["#shorts"]
     assert body["counts"] == {
-        "accounts_by_platform": {p: 0 for p in ("youtube", "tiktok", "bilibili", "instagram", "facebook")},
+        "accounts_by_platform": {p: 0 for p in ("youtube", "tiktok", "bilibili", "instagram", "facebook", "vimeo")},
         "clips_pending_review": 0,
         "publications_scheduled": 0,
         "publications_published": 0,

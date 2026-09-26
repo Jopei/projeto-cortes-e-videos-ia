@@ -73,6 +73,22 @@ export const INTEGRATION_HELP: Record<IntegrationId, IntegrationHelp> = {
     ],
     links: [{ label: "Bilibili Open Platform", href: "https://open.bilibili.com" }],
   },
+  vimeo: {
+    platformLabel: "Vimeo",
+    steps: [
+      'Acesse developer.vimeo.com/apps e clique em "Create an app" (entre com a conta Vimeo que vai publicar).',
+      "Preencha nome e descrição; marque que o app será usado só por você/sua equipe se aplicável.",
+      'Na página do app, em "Authentication", adicione a redirect URI abaixo em "App Callback URLs".',
+      'Copie o "Client identifier" e o "Client secret" (em "Manage App Secrets") para cá.',
+      'Uploads usam o escopo "upload"; dependendo da conta, o Vimeo pode exigir que você solicite acesso de upload na página do app.',
+    ],
+    notes: [
+      "Vídeos verticais são aceitos, mas o Vimeo não é plataforma de Shorts.",
+      "Monetização no Vimeo não é por anúncios (é via Vimeo OTT/On Demand) — use-o mais como vitrine/portfólio.",
+      "Planos gratuitos têm limite semanal de upload.",
+    ],
+    links: [{ label: "Vimeo Developer — Meus apps", href: "https://developer.vimeo.com/apps" }],
+  },
   anthropic: {
     platformLabel: "Anthropic (IA)",
     steps: [

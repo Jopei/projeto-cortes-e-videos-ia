@@ -48,6 +48,11 @@ PLATFORM_INFO: dict[Platform, dict[str, str | bool]] = {
         "supports_oauth": True,
         "notes": "Graph API, exige conta Business/Creator e app Meta revisado.",
     },
+    Platform.VIMEO: {
+        "name": "Vimeo",
+        "supports_oauth": True,
+        "notes": "Vimeo API (upload via tus). Monetização no Vimeo não é por anúncios.",
+    },
 }
 
 

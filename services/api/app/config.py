@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     facebook_app_secret: str | None = None
     bilibili_client_id: str | None = None
     bilibili_client_secret: str | None = None
+    vimeo_client_id: str | None = None
+    vimeo_client_secret: str | None = None
     """Env fallback for the fields managed by `app/integrations.py` (see
     `GET/PUT /api/admin/integrations`) — a value saved in the
     `integration_settings` table always takes precedence over these; a
