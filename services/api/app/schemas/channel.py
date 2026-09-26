@@ -40,6 +40,7 @@ class ChannelRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    owner_id: uuid.UUID
     name: str
     slug: str
     niche: str | None

@@ -34,6 +34,7 @@ class PlatformAccountRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    owner_id: uuid.UUID
     channel_id: uuid.UUID | None
     platform: Platform
     display_name: str

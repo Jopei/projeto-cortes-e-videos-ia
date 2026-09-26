@@ -42,6 +42,9 @@ class Publication(Base):
     __tablename__ = "publications"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
     clip_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("clips.id"), nullable=False, index=True)
     account_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("platform_accounts.id"), nullable=False, index=True

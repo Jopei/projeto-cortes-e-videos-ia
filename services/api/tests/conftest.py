@@ -32,6 +32,7 @@ from app.main import app  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.rate_limit import login_rate_limiter  # noqa: E402
 from app.security import hash_password  # noqa: E402
+from tests import factories  # noqa: E402
 
 # tusd's HTTP hook protocol stores metadata as base64 in real requests, but
 # our hook only reads `payload["Event"]["Upload"]["MetaData"]` as plain
@@ -41,6 +42,7 @@ from app.security import hash_password  # noqa: E402
 SOURCES_TABLE_DDL = """
 CREATE TABLE sources (
     id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
     default_channel_id TEXT,
     title TEXT NOT NULL,
     work_name TEXT NOT NULL,
@@ -63,20 +65,23 @@ CREATE TABLE sources (
 MEDIA_ASSETS_TABLE_DDL = """
 CREATE TABLE media_assets (
     id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
     source_id TEXT NOT NULL,
     channel_id TEXT,
     filename TEXT NOT NULL,
     storage_key TEXT NOT NULL,
     duration REAL,
+    size_bytes INTEGER,
     status TEXT NOT NULL DEFAULT 'uploaded',
     created_at TEXT
 )
 """
 
-# AnalysisJob/Clip/ClipMetadata/PlatformAccount/Publication/AuditLog (etapa A)
-# use the portable `sqlalchemy.Uuid`/`JSON` types instead, specifically so
-# they DO survive `Base.metadata.create_all()` on sqlite — no hand-written
-# DDL needed for these.
+# AnalysisJob/Clip/ClipMetadata/PlatformAccount/Publication/AuditLog/Channel
+# (etapa A/multiusuário) use the portable `sqlalchemy.Uuid`/`JSON` types
+# instead, specifically so they DO survive `Base.metadata.create_all()` on
+# sqlite — no hand-written DDL needed for these (their `owner_id` columns
+# ride along automatically since they're declared on the ORM model).
 from app.models.analysis_job import AnalysisJob  # noqa: E402
 from app.models.audit_log import AuditLog  # noqa: E402
 from app.models.channel import Channel  # noqa: E402
@@ -100,10 +105,10 @@ NEW_MODEL_TABLES = [
 def db_engine():
     """A throwaway sqlite DB per test — Source/MediaAsset use postgres-only
     types (ARRAY, dialect UUID) that don't survive `create_all` on sqlite, so
-    only the `users` table (plus the etapa-A tables, which use portable
-    types) is created via the ORM; `sources`/`media_assets` are created with
-    a plain-SQL schema (see module docstring) which is enough for the simple
-    lookups/inserts the API and these fixtures perform.
+    only the `users` table (plus the etapa-A/multiusuário tables, which use
+    portable types) is created via the ORM; `sources`/`media_assets` are
+    created with a plain-SQL schema (see module docstring) which is enough
+    for the simple lookups/inserts the API and these fixtures perform.
     """
     engine = create_engine(
         "sqlite://",
@@ -158,8 +163,36 @@ def user_password() -> str:
 
 @pytest.fixture()
 def user(session_factory, user_password) -> User:
+    """The "primary" test user. Also registered as the default `owner_id`
+    for `tests.factories.insert_*` helpers that don't get an explicit
+    `owner_id` — see `tests/factories.py` module docstring — so the ~100
+    pre-existing single-tenant tests keep working unmodified: everything
+    they create is implicitly scoped to this one user, exactly like before
+    multi-tenancy existed.
+    """
     db = session_factory()
     created = User(username="alice", password_hash=hash_password(user_password), is_active=True, is_admin=False)
+    db.add(created)
+    db.commit()
+    db.refresh(created)
+    db.close()
+    factories.set_default_owner(created.id)
+    return created
+
+
+@pytest.fixture()
+def other_password() -> str:
+    return "other-horse-battery-staple"
+
+
+@pytest.fixture()
+def other_user(session_factory, other_password) -> User:
+    """A second, unrelated tenant — used by isolation tests. Does NOT change
+    the factories' default owner (see `user` fixture); pass
+    `owner_id=other_user.id` explicitly when building fixtures for this
+    user."""
+    db = session_factory()
+    created = User(username="bob", password_hash=hash_password(other_password), is_active=True, is_admin=False)
     db.add(created)
     db.commit()
     db.refresh(created)
@@ -168,17 +201,34 @@ def user(session_factory, user_password) -> User:
 
 
 @pytest.fixture()
-def source_id(session_factory) -> uuid.UUID:
+def admin_password() -> str:
+    return "admin-horse-battery-staple"
+
+
+@pytest.fixture()
+def admin_user(session_factory, admin_password) -> User:
+    db = session_factory()
+    created = User(username="root-admin", password_hash=hash_password(admin_password), is_active=True, is_admin=True)
+    db.add(created)
+    db.commit()
+    db.refresh(created)
+    db.close()
+    return created
+
+
+@pytest.fixture()
+def source_id(session_factory, user) -> uuid.UUID:
     new_id = uuid.uuid4()
     db = session_factory()
     db.execute(
         text(
-            "INSERT INTO sources (id, title, work_name, license_type, allowed_platforms, territories,"
+            "INSERT INTO sources (id, owner_id, title, work_name, license_type, allowed_platforms, territories,"
             " monetization_allowed, created_at)"
-            " VALUES (:id, :title, :work_name, :license_type, :ap, :te, 0, :created_at)"
+            " VALUES (:id, :owner_id, :title, :work_name, :license_type, :ap, :te, 0, :created_at)"
         ),
         {
             "id": new_id.hex,
+            "owner_id": user.id.hex,
             "title": "Test source",
             "work_name": "Test work",
             "license_type": "cc_by",
@@ -193,16 +243,17 @@ def source_id(session_factory) -> uuid.UUID:
 
 
 @pytest.fixture()
-def media_asset_id(session_factory, source_id) -> uuid.UUID:
+def media_asset_id(session_factory, source_id, user) -> uuid.UUID:
     new_id = uuid.uuid4()
     db = session_factory()
     db.execute(
         text(
-            "INSERT INTO media_assets (id, source_id, filename, storage_key, status, created_at)"
-            " VALUES (:id, :source_id, :filename, :storage_key, 'ready', :created_at)"
+            "INSERT INTO media_assets (id, owner_id, source_id, filename, storage_key, status, created_at)"
+            " VALUES (:id, :owner_id, :source_id, :filename, :storage_key, 'ready', :created_at)"
         ),
         {
             "id": new_id.hex,
+            "owner_id": user.id.hex,
             "source_id": source_id.hex,
             "filename": "test.mp4",
             "storage_key": "media-assets/test.mp4",
@@ -220,3 +271,52 @@ def logged_in_client(client, user, user_password):
     resp = client.post("/api/auth/login", json={"username": user.username, "password": user_password})
     assert resp.status_code == 200
     return client
+
+
+def _second_client(client: TestClient) -> TestClient:
+    """A second `TestClient` (own cookie jar) against the same `app`, used
+    together with `logged_in_client`/`admin_client` to simulate two
+    concurrently-logged-in sessions in one test (a single `TestClient` only
+    has one cookie jar, so it can't hold two sessions at once).
+
+    Deliberately does NOT `with TestClient(app) as tc: ...` (which would
+    start a brand new anyio blocking portal/thread per extra client, on top
+    of the one the primary `client` fixture already started) — instead it
+    reuses `client`'s already-running portal (`TestClient._portal_factory`
+    happily reuses `self.portal` when set). Spinning up several independent
+    portals per test turned out to be flaky under the full suite's fixture
+    load (intermittent, unrelated-looking failures — a request on one
+    TestClient occasionally observing another's in-flight state), so every
+    extra client in a test shares the one portal the first `client` opened.
+    """
+    tc = TestClient(app)
+    tc.portal = client.portal
+    return tc
+
+
+@pytest.fixture()
+def other_client(client):
+    tc = _second_client(client)
+    yield tc
+    tc.close()
+
+
+@pytest.fixture()
+def other_logged_in_client(other_client, other_user, other_password):
+    resp = other_client.post("/api/auth/login", json={"username": other_user.username, "password": other_password})
+    assert resp.status_code == 200
+    return other_client
+
+
+@pytest.fixture()
+def admin_client_raw(client):
+    tc = _second_client(client)
+    yield tc
+    tc.close()
+
+
+@pytest.fixture()
+def admin_client(admin_client_raw, admin_user, admin_password):
+    resp = admin_client_raw.post("/api/auth/login", json={"username": admin_user.username, "password": admin_password})
+    assert resp.status_code == 200
+    return admin_client_raw

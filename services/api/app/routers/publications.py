@@ -12,22 +12,21 @@ from sqlalchemy.orm import Session
 from app.audit import record_action
 from app.config import get_settings
 from app.db import get_db
-from app.deps import get_current_user
 from app.models.clip import Clip, ClipStatus
 from app.models.clip_metadata import ClipMetadata
 from app.models.media_asset import MediaAsset
 from app.models.platform_account import AccountMode, PlatformAccount
 from app.models.publication import Publication, PublicationStatus
 from app.models.source import Source
-from app.models.user import User
 from app.rights.attribution import build_description
 from app.rights.gate import check_publishable
 from app.scheduling import NoSlotAvailableError, find_next_slot
+from app.scope import Scope, get_owned_or_404, get_scope
 from app.schemas.publication import PublicationBatchRequest, PublicationBatchResult, PublicationRead
 from app.storage import S3Client, get_s3_client
 from app.worker.tasks import takedown_publication as takedown_publication_task
 
-router = APIRouter(prefix="/api/publications", tags=["publications"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/publications", tags=["publications"], dependencies=[Depends(get_scope)])
 
 
 def _resolve_source(db: Session, clip: Clip) -> Source | None:
@@ -41,9 +40,18 @@ def _resolve_source(db: Session, clip: Clip) -> Source | None:
 def create_publications_batch(
     payload: PublicationBatchRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> PublicationBatchResult:
-    clips = {c.id: c for c in db.query(Clip).filter(Clip.id.in_(payload.clip_ids)).all()}
+    # A batch always resolves to ONE owner (see Scope.create_owner_id) —
+    # every clip/account it touches must belong to that same owner. This is
+    # what makes "publish user A's clip to user B's account" impossible even
+    # for an admin acting without `as_user` (their own id is then the owner).
+    owner_id = scope.create_owner_id
+
+    clips = {
+        c.id: c
+        for c in db.query(Clip).filter(Clip.id.in_(payload.clip_ids), Clip.owner_id == owner_id).all()
+    }
     missing_clips = [str(i) for i in payload.clip_ids if i not in clips]
     if missing_clips:
         raise HTTPException(status_code=404, detail=f"Clip(s) not found: {', '.join(missing_clips)}")
@@ -60,7 +68,10 @@ def create_publications_batch(
             )
         channel_ids = {clip.channel_id for clip in clips.values()}
         accounts_by_channel = {
-            cid: db.query(PlatformAccount).filter(PlatformAccount.channel_id == cid).all() for cid in channel_ids
+            cid: db.query(PlatformAccount)
+            .filter(PlatformAccount.channel_id == cid, PlatformAccount.owner_id == owner_id)
+            .all()
+            for cid in channel_ids
         }
         for clip_id in payload.clip_ids:
             clip = clips[clip_id]
@@ -68,7 +79,10 @@ def create_publications_batch(
                 pairs.append((clip, account))
     else:
         accounts = {
-            a.id: a for a in db.query(PlatformAccount).filter(PlatformAccount.id.in_(payload.account_ids)).all()
+            a.id: a
+            for a in db.query(PlatformAccount)
+            .filter(PlatformAccount.id.in_(payload.account_ids), PlatformAccount.owner_id == owner_id)
+            .all()
         }
         missing_accounts = [str(i) for i in payload.account_ids if i not in accounts]
         if missing_accounts:
@@ -94,7 +108,7 @@ def create_publications_batch(
 
     for clip, account in pairs:
         source = sources_by_clip[clip.id]
-        publication = Publication(clip_id=clip.id, account_id=account.id, platform=account.platform)
+        publication = Publication(owner_id=owner_id, clip_id=clip.id, account_id=account.id, platform=account.platform)
 
         if clip.status != ClipStatus.APPROVED:
             publication.status = PublicationStatus.BLOCKED
@@ -138,16 +152,18 @@ def create_publications_batch(
         db.flush()
         record_action(
             db,
-            user_id=current_user.id,
+            user_id=scope.actor.id,
             action="publication.create",
             entity="publication",
             entity_id=publication.id,
-            details={
-                "clip_id": str(clip.id),
-                "account_id": str(account.id),
-                "status": publication.status.value,
-                "block_reasons": publication.block_reasons,
-            },
+            details=scope.audit_details(
+                {
+                    "clip_id": str(clip.id),
+                    "account_id": str(account.id),
+                    "status": publication.status.value,
+                    "block_reasons": publication.block_reasons,
+                }
+            ),
         )
         created.append(publication)
 
@@ -164,8 +180,9 @@ def list_publications(
     account_id: uuid.UUID | None = Query(default=None),
     channel_id: uuid.UUID | None = Query(default=None),
     db: Session = Depends(get_db),
+    scope: Scope = Depends(get_scope),
 ) -> list[Publication]:
-    stmt = db.query(Publication)
+    stmt = scope.owned(db.query(Publication), Publication)
     if channel_id is not None:
         # Publication has no channel_id of its own — scope it via its Clip.
         stmt = stmt.join(Clip, Publication.clip_id == Clip.id).filter(Clip.channel_id == channel_id)
@@ -178,30 +195,23 @@ def list_publications(
     return list(stmt.order_by(Publication.created_at.desc()).all())
 
 
-def _get_publication_or_404(db: Session, publication_id: uuid.UUID) -> Publication:
-    publication = db.get(Publication, publication_id)
-    if publication is None:
-        raise HTTPException(status_code=404, detail="Publication not found")
-    return publication
-
-
 @router.post("/{publication_id}/cancel", response_model=PublicationRead)
 def cancel_publication(
     publication_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> Publication:
-    publication = _get_publication_or_404(db, publication_id)
+    publication = get_owned_or_404(db, Publication, publication_id, scope)
     if publication.status not in (PublicationStatus.SCHEDULED, PublicationStatus.BLOCKED, PublicationStatus.FAILED):
         raise HTTPException(status_code=409, detail=f"Cannot cancel a publication in status {publication.status.value}")
     publication.status = PublicationStatus.CANCELED
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="publication.cancel",
         entity="publication",
         entity_id=publication.id,
-        details=None,
+        details=scope.audit_details(),
     )
     db.commit()
     db.refresh(publication)
@@ -212,18 +222,18 @@ def cancel_publication(
 def takedown_publication(
     publication_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> Publication:
-    publication = _get_publication_or_404(db, publication_id)
+    publication = get_owned_or_404(db, Publication, publication_id, scope)
     if publication.status != PublicationStatus.PUBLISHED:
         raise HTTPException(status_code=409, detail="Only a published Publication can be taken down")
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="publication.takedown",
         entity="publication",
         entity_id=publication.id,
-        details=None,
+        details=scope.audit_details(),
     )
     db.commit()
     takedown_publication_task.delay(str(publication.id))
@@ -235,11 +245,12 @@ def takedown_publication(
 def export_publication(
     publication_id: uuid.UUID,
     db: Session = Depends(get_db),
+    scope: Scope = Depends(get_scope),
     s3: S3Client = Depends(get_s3_client),
 ) -> StreamingResponse:
     """Zip package (video.mp4 + metadata.txt) for manual-account publications
     (or any publication someone wants a local copy of)."""
-    publication = _get_publication_or_404(db, publication_id)
+    publication = get_owned_or_404(db, Publication, publication_id, scope)
     clip = db.get(Clip, publication.clip_id)
     if clip is None or not clip.storage_key:
         raise HTTPException(status_code=409, detail="Clip video is not available")

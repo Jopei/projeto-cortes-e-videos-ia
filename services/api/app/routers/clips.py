@@ -8,18 +8,17 @@ from sqlalchemy.orm import Session
 
 from app.audit import record_action
 from app.db import get_db
-from app.deps import get_current_user
 from app.models.clip import Clip, ClipStatus
 from app.models.clip_metadata import ClipMetadata
 from app.models.enums import Platform
-from app.models.user import User
+from app.scope import Scope, get_owned_or_404, get_scope
 from app.schemas.clip import ClipBulkAction, ClipDetailRead, ClipRead, ClipUpdate
 from app.schemas.clip_metadata import ClipMetadataRead, ClipMetadataUpdate
 from app.storage import S3Client, get_s3_client, stream_s3_object
 from app.worker.tasks import regenerate_metadata as regenerate_metadata_task
 from app.worker.tasks import render_clip
 
-router = APIRouter(prefix="/api/clips", tags=["clips"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/clips", tags=["clips"], dependencies=[Depends(get_scope)])
 
 
 @router.get("", response_model=list[ClipRead])
@@ -31,8 +30,9 @@ def list_clips(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
+    scope: Scope = Depends(get_scope),
 ) -> list[Clip]:
-    stmt = db.query(Clip)
+    stmt = scope.owned(db.query(Clip), Clip)
     if status is not None:
         stmt = stmt.filter(Clip.status == status)
     if job_id is not None:
@@ -44,16 +44,9 @@ def list_clips(
     return list(stmt.order_by(Clip.created_at.desc()).offset(offset).limit(limit).all())
 
 
-def _get_clip_or_404(db: Session, clip_id: uuid.UUID) -> Clip:
-    clip = db.get(Clip, clip_id)
-    if clip is None:
-        raise HTTPException(status_code=404, detail="Clip not found")
-    return clip
-
-
 @router.get("/{clip_id}", response_model=ClipDetailRead)
-def get_clip(clip_id: uuid.UUID, db: Session = Depends(get_db)) -> Clip:
-    return _get_clip_or_404(db, clip_id)
+def get_clip(clip_id: uuid.UUID, db: Session = Depends(get_db), scope: Scope = Depends(get_scope)) -> Clip:
+    return get_owned_or_404(db, Clip, clip_id, scope)
 
 
 @router.patch("/{clip_id}", response_model=ClipRead)
@@ -61,19 +54,19 @@ def update_clip(
     clip_id: uuid.UUID,
     payload: ClipUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> Clip:
-    clip = _get_clip_or_404(db, clip_id)
+    clip = get_owned_or_404(db, Clip, clip_id, scope)
 
     if payload.status is not None:
         clip.status = ClipStatus(payload.status)
         record_action(
             db,
-            user_id=current_user.id,
+            user_id=scope.actor.id,
             action=f"clip.{payload.status}",
             entity="clip",
             entity_id=clip.id,
-            details=None,
+            details=scope.audit_details(),
         )
 
     trimmed = payload.start_s is not None or payload.end_s is not None
@@ -87,11 +80,11 @@ def update_clip(
         clip.status = ClipStatus.RENDERING
         record_action(
             db,
-            user_id=current_user.id,
+            user_id=scope.actor.id,
             action="clip.trim",
             entity="clip",
             entity_id=clip.id,
-            details={"start_s": clip.start_s, "end_s": clip.end_s},
+            details=scope.audit_details({"start_s": clip.start_s, "end_s": clip.end_s}),
         )
 
     db.commit()
@@ -107,10 +100,10 @@ def update_clip(
 def bulk_update_clips(
     payload: ClipBulkAction,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> list[Clip]:
     new_status = ClipStatus.APPROVED if payload.action == "approve" else ClipStatus.REJECTED
-    clips = db.query(Clip).filter(Clip.id.in_(payload.ids)).all()
+    clips = scope.owned(db.query(Clip), Clip).filter(Clip.id.in_(payload.ids)).all()
     found_ids = {c.id for c in clips}
     missing = [str(i) for i in payload.ids if i not in found_ids]
     if missing:
@@ -120,11 +113,11 @@ def bulk_update_clips(
         clip.status = new_status
         record_action(
             db,
-            user_id=current_user.id,
+            user_id=scope.actor.id,
             action=f"clip.{payload.action}",
             entity="clip",
             entity_id=clip.id,
-            details={"bulk": True},
+            details=scope.audit_details({"bulk": True}),
         )
     db.commit()
     for clip in clips:
@@ -138,9 +131,9 @@ def upsert_clip_metadata(
     platform: Platform,
     payload: ClipMetadataUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> ClipMetadata:
-    _get_clip_or_404(db, clip_id)
+    get_owned_or_404(db, Clip, clip_id, scope)
     entry = (
         db.query(ClipMetadata)
         .filter(ClipMetadata.clip_id == clip_id, ClipMetadata.platform == platform.value)
@@ -156,11 +149,11 @@ def upsert_clip_metadata(
 
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="clip_metadata.edit",
         entity="clip_metadata",
         entity_id=clip_id,
-        details={"platform": platform.value},
+        details=scope.audit_details({"platform": platform.value}),
     )
     db.commit()
     db.refresh(entry)
@@ -172,16 +165,16 @@ def regenerate_clip_metadata(
     clip_id: uuid.UUID,
     platform: Platform | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> dict[str, str]:
-    clip = _get_clip_or_404(db, clip_id)
+    clip = get_owned_or_404(db, Clip, clip_id, scope)
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="clip_metadata.regenerate",
         entity="clip",
         entity_id=clip.id,
-        details={"platform": platform.value if platform else "all"},
+        details=scope.audit_details({"platform": platform.value if platform else "all"}),
     )
     db.commit()
     task = regenerate_metadata_task.delay(str(clip_id), platform.value if platform else None)
@@ -193,9 +186,10 @@ def stream_clip_video(
     clip_id: uuid.UUID,
     request: Request,
     db: Session = Depends(get_db),
+    scope: Scope = Depends(get_scope),
     s3: S3Client = Depends(get_s3_client),
 ) -> StreamingResponse:
-    clip = _get_clip_or_404(db, clip_id)
+    clip = get_owned_or_404(db, Clip, clip_id, scope)
     if not clip.storage_key:
         raise HTTPException(status_code=409, detail="Clip has not finished rendering yet")
     return stream_s3_object(request, s3, clip.storage_key, "video/mp4")
@@ -206,9 +200,10 @@ def stream_clip_thumbnail(
     clip_id: uuid.UUID,
     request: Request,
     db: Session = Depends(get_db),
+    scope: Scope = Depends(get_scope),
     s3: S3Client = Depends(get_s3_client),
 ) -> StreamingResponse:
-    clip = _get_clip_or_404(db, clip_id)
+    clip = get_owned_or_404(db, Clip, clip_id, scope)
     if not clip.thumbnail_key:
         raise HTTPException(status_code=409, detail="Clip has no thumbnail yet")
     return stream_s3_object(request, s3, clip.thumbnail_key, "image/jpeg")

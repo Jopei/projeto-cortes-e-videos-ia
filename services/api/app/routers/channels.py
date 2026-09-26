@@ -8,13 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.audit import record_action
 from app.db import get_db
-from app.deps import get_current_user
 from app.models.channel import Channel
 from app.models.clip import Clip, ClipStatus
 from app.models.enums import Platform
 from app.models.platform_account import PlatformAccount
 from app.models.publication import Publication, PublicationStatus
-from app.models.user import User
+from app.quotas import assert_channel_quota
+from app.scope import Scope, get_owned_or_404, get_scope
 from app.schemas.channel import (
     ChannelCounts,
     ChannelCreate,
@@ -23,7 +23,7 @@ from app.schemas.channel import (
     ChannelWithCounts,
 )
 
-router = APIRouter(prefix="/api/channels", tags=["channels"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/channels", tags=["channels"], dependencies=[Depends(get_scope)])
 
 
 def _dump_json_field(value) -> dict | None:
@@ -80,16 +80,9 @@ def _with_counts(db: Session, channel: Channel) -> ChannelWithCounts:
     )
 
 
-def _get_channel_or_404(db: Session, channel_id: uuid.UUID) -> Channel:
-    channel = db.get(Channel, channel_id)
-    if channel is None:
-        raise HTTPException(status_code=404, detail="Channel not found")
-    return channel
-
-
 @router.get("", response_model=list[ChannelWithCounts])
-def list_channels(db: Session = Depends(get_db)) -> list[ChannelWithCounts]:
-    channels = db.query(Channel).order_by(Channel.created_at.desc()).all()
+def list_channels(db: Session = Depends(get_db), scope: Scope = Depends(get_scope)) -> list[ChannelWithCounts]:
+    channels = scope.owned(db.query(Channel), Channel).order_by(Channel.created_at.desc()).all()
     return [_with_counts(db, channel) for channel in channels]
 
 
@@ -97,12 +90,22 @@ def list_channels(db: Session = Depends(get_db)) -> list[ChannelWithCounts]:
 def create_channel(
     payload: ChannelCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> ChannelWithCounts:
-    if db.query(Channel).filter(Channel.slug == payload.slug).one_or_none() is not None:
+    owner_id = scope.create_owner_id
+    if not scope.actor.is_admin:
+        assert_channel_quota(db, scope.actor, owner_id)
+
+    if (
+        db.query(Channel)
+        .filter(Channel.owner_id == owner_id, Channel.slug == payload.slug)
+        .one_or_none()
+        is not None
+    ):
         raise HTTPException(status_code=409, detail="A channel with this slug already exists")
 
     channel = Channel(
+        owner_id=owner_id,
         name=payload.name,
         slug=payload.slug,
         niche=payload.niche,
@@ -116,11 +119,11 @@ def create_channel(
     db.flush()
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="channel.create",
         entity="channel",
         entity_id=channel.id,
-        details={"name": channel.name, "slug": channel.slug},
+        details=scope.audit_details({"name": channel.name, "slug": channel.slug}),
     )
     db.commit()
     db.refresh(channel)
@@ -128,8 +131,10 @@ def create_channel(
 
 
 @router.get("/{channel_id}", response_model=ChannelWithCounts)
-def get_channel(channel_id: uuid.UUID, db: Session = Depends(get_db)) -> ChannelWithCounts:
-    channel = _get_channel_or_404(db, channel_id)
+def get_channel(
+    channel_id: uuid.UUID, db: Session = Depends(get_db), scope: Scope = Depends(get_scope)
+) -> ChannelWithCounts:
+    channel = get_owned_or_404(db, Channel, channel_id, scope)
     return _with_counts(db, channel)
 
 
@@ -138,13 +143,17 @@ def update_channel(
     channel_id: uuid.UUID,
     payload: ChannelUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> ChannelWithCounts:
-    channel = _get_channel_or_404(db, channel_id)
+    channel = get_owned_or_404(db, Channel, channel_id, scope)
     updates = payload.model_dump(exclude_unset=True)
 
     if "slug" in updates and updates["slug"] != channel.slug:
-        if db.query(Channel).filter(Channel.slug == updates["slug"], Channel.id != channel_id).one_or_none():
+        if (
+            db.query(Channel)
+            .filter(Channel.owner_id == channel.owner_id, Channel.slug == updates["slug"], Channel.id != channel_id)
+            .one_or_none()
+        ):
             raise HTTPException(status_code=409, detail="A channel with this slug already exists")
 
     for field in ("name", "slug", "niche", "color", "default_preset", "is_active"):
@@ -157,11 +166,11 @@ def update_channel(
 
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="channel.update",
         entity="channel",
         entity_id=channel.id,
-        details=updates,
+        details=scope.audit_details(updates),
     )
     db.commit()
     db.refresh(channel)
@@ -172,9 +181,9 @@ def update_channel(
 def delete_channel(
     channel_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> Response:
-    channel = _get_channel_or_404(db, channel_id)
+    channel = get_owned_or_404(db, Channel, channel_id, scope)
 
     has_scheduled = (
         db.query(func.count())
@@ -192,11 +201,11 @@ def delete_channel(
 
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="channel.delete",
         entity="channel",
         entity_id=channel.id,
-        details={"name": channel.name, "slug": channel.slug},
+        details=scope.audit_details({"name": channel.name, "slug": channel.slug}),
     )
     db.delete(channel)
     db.commit()

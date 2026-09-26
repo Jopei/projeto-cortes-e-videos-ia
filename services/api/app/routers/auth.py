@@ -5,12 +5,13 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
+from app.audit import record_action
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.user import User
 from app.rate_limit import login_rate_limiter
-from app.schemas.user import LoginRequest, UserRead
-from app.security import clear_session_cookie, create_session_token, set_session_cookie, verify_password
+from app.schemas.user import ChangePasswordRequest, LoginRequest, UserRead
+from app.security import clear_session_cookie, create_session_token, hash_password, set_session_cookie, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -58,3 +59,26 @@ def logout(response: Response) -> dict[str, bool]:
 @router.get("/me", response_model=UserRead)
 def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, bool]:
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+    current_user.password_hash = hash_password(payload.new_password)
+    current_user.must_change_password = False
+    record_action(
+        db,
+        user_id=current_user.id,
+        action="password.change",
+        entity="user",
+        entity_id=current_user.id,
+        details=None,
+    )
+    db.commit()
+    return {"ok": True}

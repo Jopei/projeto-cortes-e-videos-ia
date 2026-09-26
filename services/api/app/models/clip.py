@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, String, Text, Uuid, func
+from sqlalchemy import JSON, BigInteger, DateTime, Enum, Float, ForeignKey, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -31,6 +31,9 @@ class Clip(Base):
     __tablename__ = "clips"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
     job_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("analysis_jobs.id"), nullable=False, index=True
     )
@@ -47,6 +50,7 @@ class Clip(Base):
     storage_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     thumbnail_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     subtitles_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[ClipStatus] = mapped_column(
         Enum(ClipStatus, name="clip_status", values_callable=lambda e: [m.value for m in e]),

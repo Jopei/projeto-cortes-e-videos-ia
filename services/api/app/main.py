@@ -5,6 +5,7 @@ from app.config import get_settings
 
 from app.routers import (
     accounts,
+    admin_users,
     audit_log,
     auth,
     channels,
@@ -12,6 +13,7 @@ from app.routers import (
     dashboard,
     health,
     jobs,
+    me,
     media_assets,
     publications,
     sources,
@@ -29,6 +31,8 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(me.router)
+app.include_router(admin_users.router)
 app.include_router(sources.router)
 app.include_router(channels.router)
 app.include_router(media_assets.router)

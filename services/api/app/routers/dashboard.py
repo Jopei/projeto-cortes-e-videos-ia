@@ -8,14 +8,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import get_current_user
 from app.models.analysis_job import AnalysisJob, AnalysisJobStatus
 from app.models.clip import Clip, ClipStatus
 from app.models.media_asset import MediaAsset
 from app.models.publication import Publication, PublicationStatus
+from app.scope import Scope, get_scope
 from app.schemas.dashboard import DashboardSummary
 
-router = APIRouter(prefix="/api/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/dashboard", tags=["dashboard"], dependencies=[Depends(get_scope)])
 
 _ACTIVE_JOB_STATUSES = (AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING)
 
@@ -24,13 +24,17 @@ _ACTIVE_JOB_STATUSES = (AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING)
 def dashboard_summary(
     channel_id: uuid.UUID | None = Query(default=None),
     db: Session = Depends(get_db),
+    scope: Scope = Depends(get_scope),
 ) -> DashboardSummary:
-    uploads_stmt = db.query(func.count()).select_from(MediaAsset)
-    jobs_stmt = db.query(func.count()).select_from(AnalysisJob).filter(AnalysisJob.status.in_(_ACTIVE_JOB_STATUSES))
-    clips_stmt = db.query(Clip.status, func.count())
-    publications_stmt = db.query(Publication.status, func.count())
+    uploads_stmt = scope.owned(db.query(func.count()).select_from(MediaAsset), MediaAsset)
+    jobs_stmt = scope.owned(
+        db.query(func.count()).select_from(AnalysisJob).filter(AnalysisJob.status.in_(_ACTIVE_JOB_STATUSES)),
+        AnalysisJob,
+    )
+    clips_stmt = scope.owned(db.query(Clip.status, func.count()), Clip)
+    publications_stmt = scope.owned(db.query(Publication.status, func.count()), Publication)
     # Publication has no channel_id of its own — scope it via its Clip.
-    publications_join = db.query(Publication).join(Clip, Publication.clip_id == Clip.id)
+    publications_join = scope.owned(db.query(Publication), Publication).join(Clip, Publication.clip_id == Clip.id)
 
     if channel_id is not None:
         uploads_stmt = uploads_stmt.filter(MediaAsset.channel_id == channel_id)

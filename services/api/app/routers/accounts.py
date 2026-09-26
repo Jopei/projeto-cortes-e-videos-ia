@@ -8,11 +8,10 @@ from sqlalchemy.orm import Session
 from app.audit import record_action
 from app.config import get_settings
 from app.db import get_db
-from app.deps import get_current_user
 from app.models.channel import Channel
 from app.models.enums import Platform
 from app.models.platform_account import AccountMode, AccountStatus, PlatformAccount
-from app.models.user import User
+from app.scope import Scope, get_owned_or_404, get_scope
 from app.schemas.platform_account import (
     OAuthConnectResponse,
     PlatformAccountCreate,
@@ -21,7 +20,7 @@ from app.schemas.platform_account import (
     PlatformInfo,
 )
 
-router = APIRouter(prefix="/api", tags=["accounts"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api", tags=["accounts"], dependencies=[Depends(get_scope)])
 
 PLATFORM_INFO: dict[Platform, dict[str, str | bool]] = {
     Platform.YOUTUBE: {
@@ -79,24 +78,33 @@ def list_platforms() -> list[PlatformInfo]:
 def list_accounts(
     channel_id: uuid.UUID | None = Query(default=None),
     db: Session = Depends(get_db),
+    scope: Scope = Depends(get_scope),
 ) -> list[PlatformAccount]:
-    stmt = db.query(PlatformAccount)
+    stmt = scope.owned(db.query(PlatformAccount), PlatformAccount)
     if channel_id is not None:
         stmt = stmt.filter(PlatformAccount.channel_id == channel_id)
     return list(stmt.order_by(PlatformAccount.created_at.desc()).all())
 
 
 def _check_channel_platform_free(
-    db: Session, channel_id: uuid.UUID | None, platform: Platform, *, exclude_account_id: uuid.UUID | None = None
+    db: Session,
+    channel_id: uuid.UUID | None,
+    platform: Platform,
+    owner_id: uuid.UUID,
+    *,
+    exclude_account_id: uuid.UUID | None = None,
 ) -> None:
     """A channel can have at most one account per platform (`channel_id`
     NULL rows are unconstrained — they just aren't linked to any channel).
     Checked explicitly (rather than only relying on the DB unique
     constraint, `uq_platform_accounts_channel_platform`) so callers get a
-    clean 409 instead of a raw IntegrityError/500."""
+    clean 409 instead of a raw IntegrityError/500. Also enforces the channel
+    belongs to the same owner as the account (404 if not, hiding existence
+    of another tenant's channel)."""
     if channel_id is None:
         return
-    if db.get(Channel, channel_id) is None:
+    channel = db.get(Channel, channel_id)
+    if channel is None or channel.owner_id != owner_id:
         raise HTTPException(status_code=404, detail="Channel not found")
     stmt = db.query(PlatformAccount).filter(
         PlatformAccount.channel_id == channel_id, PlatformAccount.platform == platform
@@ -111,10 +119,12 @@ def _check_channel_platform_free(
 def create_account(
     payload: PlatformAccountCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> PlatformAccount:
-    _check_channel_platform_free(db, payload.channel_id, payload.platform)
+    owner_id = scope.create_owner_id
+    _check_channel_platform_free(db, payload.channel_id, payload.platform, owner_id)
     account = PlatformAccount(
+        owner_id=owner_id,
         platform=payload.platform.value,
         display_name=payload.display_name,
         channel_id=payload.channel_id,
@@ -125,21 +135,16 @@ def create_account(
     db.flush()
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="account.create",
         entity="platform_account",
         entity_id=account.id,
-        details={"platform": payload.platform.value, "mode": "manual", "channel_id": str(payload.channel_id) if payload.channel_id else None},
+        details=scope.audit_details(
+            {"platform": payload.platform.value, "mode": "manual", "channel_id": str(payload.channel_id) if payload.channel_id else None}
+        ),
     )
     db.commit()
     db.refresh(account)
-    return account
-
-
-def _get_account_or_404(db: Session, account_id: uuid.UUID) -> PlatformAccount:
-    account = db.get(PlatformAccount, account_id)
-    if account is None:
-        raise HTTPException(status_code=404, detail="PlatformAccount not found")
     return account
 
 
@@ -148,26 +153,26 @@ def update_account(
     account_id: uuid.UUID,
     payload: PlatformAccountUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> PlatformAccount:
-    account = _get_account_or_404(db, account_id)
+    account = get_owned_or_404(db, PlatformAccount, account_id, scope)
     updates = payload.model_dump(exclude_unset=True)
 
     channel_changed = "channel_id" in updates and updates["channel_id"] != account.channel_id
     if channel_changed:
         _check_channel_platform_free(
-            db, updates["channel_id"], account.platform, exclude_account_id=account.id
+            db, updates["channel_id"], account.platform, account.owner_id, exclude_account_id=account.id
         )
 
     for field, value in updates.items():
         setattr(account, field, value)
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="account.link_channel" if channel_changed else "account.update",
         entity="platform_account",
         entity_id=account.id,
-        details=payload.model_dump(exclude_unset=True, mode="json"),
+        details=scope.audit_details(payload.model_dump(exclude_unset=True, mode="json")),
     )
     db.commit()
     db.refresh(account)
@@ -178,16 +183,16 @@ def update_account(
 def delete_account(
     account_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    scope: Scope = Depends(get_scope),
 ) -> Response:
-    account = _get_account_or_404(db, account_id)
+    account = get_owned_or_404(db, PlatformAccount, account_id, scope)
     record_action(
         db,
-        user_id=current_user.id,
+        user_id=scope.actor.id,
         action="account.delete",
         entity="platform_account",
         entity_id=account.id,
-        details={"platform": account.platform},
+        details=scope.audit_details({"platform": account.platform}),
     )
     db.delete(account)
     db.commit()

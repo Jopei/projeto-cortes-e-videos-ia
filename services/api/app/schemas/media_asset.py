@@ -12,11 +12,13 @@ class MediaAssetRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    owner_id: uuid.UUID
     source_id: uuid.UUID
     channel_id: uuid.UUID | None
     filename: str
     storage_key: str
     duration: float | None
+    size_bytes: int | None
     status: MediaAssetStatus
     created_at: datetime
 

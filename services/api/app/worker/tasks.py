@@ -182,6 +182,7 @@ def run_analysis(job_id: str) -> dict[str, str]:
             # schema change (Clip has no dedicated column for it).
             signals_with_peak["_peak_time"] = candidate.peak_time
             clip = Clip(
+                owner_id=job.owner_id,
                 job_id=job.id,
                 media_asset_id=media_asset.id,
                 channel_id=job.channel_id,
@@ -320,20 +321,27 @@ def render_clip(clip_id: str) -> dict[str, str]:
         thumbnail_at = peak_time
         extract_thumbnail(source_path, thumbnail_at, thumbnail_path)
 
-        video_key = f"clips/{clip.id}/video.mp4"
-        thumbnail_key = f"clips/{clip.id}/thumbnail.jpg"
+        # Storage keys are prefixed per-owner so a raw S3 listing already
+        # reflects tenant boundaries (the DB `owner_id` column remains the
+        # actual source of truth/enforcement point — see CLAUDE.md
+        # "Multiusuário" for why tusd-originated uploads aren't prefixed the
+        # same way).
+        key_prefix = f"users/{clip.owner_id}/clips/{clip.id}"
+        video_key = f"{key_prefix}/video.mp4"
+        thumbnail_key = f"{key_prefix}/thumbnail.jpg"
         _upload_file(client, settings.s3_bucket, video_key, output_path, "video/mp4")
         _upload_file(client, settings.s3_bucket, thumbnail_key, thumbnail_path, "image/jpeg")
 
         subtitles_key = None
         if words_in_clip:
             _, srt_text = build_subtitle_files(words_in_clip)
-            subtitles_key = f"clips/{clip.id}/subtitles.srt"
+            subtitles_key = f"{key_prefix}/subtitles.srt"
             _upload_bytes(client, settings.s3_bucket, subtitles_key, srt_text.encode("utf-8"), "text/plain")
 
         clip.storage_key = video_key
         clip.thumbnail_key = thumbnail_key
         clip.subtitles_key = subtitles_key
+        clip.size_bytes = os.path.getsize(output_path)
         clip.status = ClipStatus.PENDING_REVIEW
         session.commit()
 

@@ -312,6 +312,145 @@ Endpoints novos (todos sob `/api/*`, protegidos por `get_current_user`):
 **Contrato de API estável a partir daqui** — qualquer mudança de campo/rota
 deve ser avisada explicitamente ao frontend-specialist.
 
+## Multiusuário (multi-tenant por usuário, migration `0005`)
+
+Decisões do dono do produto: admin vê **tudo**, com filtro opcional "ver
+como usuário X"; usuário comum vê **somente** os próprios dados. Fontes e
+canais são por usuário. Cotas (armazenamento, análises/dia, nº de canais)
+são por usuário, com admin sempre isento.
+
+- **Ownership**: `Source`, `MediaAsset`, `Channel`, `AnalysisJob`, `Clip`,
+  `PlatformAccount`, `Publication` ganharam `owner_id` (FK `users.id`, index,
+  NOT NULL, backfillado no upgrade com o admin mais antigo). `ClipMetadata`
+  **não** tem `owner_id` próprio — sempre acessado via `clip.owner_id`.
+  `AuditLog.user_id` (já existia) é o **ator** da ação, não o dono do
+  recurso — dois conceitos diferentes, ver escopo do audit-log abaixo.
+  `channels.slug` deixou de ser único globalmente e passou a ser único por
+  `(owner_id, slug)` (`uq_channels_owner_slug`) — dois usuários podem ter um
+  canal "principal" cada um.
+- **`users` ganhou**: `display_name`, `email` (opcional, único quando não
+  nulo), `must_change_password` (bool, default `false`), e três cotas
+  nuláveis = ilimitado: `storage_quota_bytes`, `daily_analysis_quota`,
+  `max_channels`. `media_assets.size_bytes`/`clips.size_bytes` (bigint,
+  nuláveis) alimentam o cálculo de armazenamento usado — preenchidos pelo
+  hook do tusd (`Upload.Size`) e por `render_clip` (tamanho do arquivo
+  renderizado), respectivamente.
+- **Escopo central — `app/scope.py`**: `get_scope` é a dependência que TODO
+  router que toca dado "dono-ável" deve usar em vez de (ou além de)
+  `get_current_user`. Resolve um `Scope` com:
+  - `owner_id`: valor para *filtrar* leituras — `None` só é possível para um
+    admin sem `as_user` (vê tudo, sem filtro).
+  - `create_owner_id`: valor para *carimbar* em toda criação — nunca `None`;
+    é o próprio admin quando ele não está impersonando ninguém.
+  - `Scope.owned(query, Model)`: aplica o filtro (no-op se `owner_id is
+    None`). `get_owned_or_404(db, Model, id, scope)`: busca por id já
+    escopado, **404 (nunca 403)** tanto para "não existe" quanto para
+    "existe mas é de outro dono" — um 403 vazaria a existência do recurso.
+  - `Scope.audit_details(details)`: injeta `details["as_user"]` quando um
+    admin agiu em nome de outro usuário (usado em toda chamada a
+    `record_action` nos routers).
+  - `require_admin`: dependência 403-se-não-admin, usada só por
+    `app/routers/admin_users.py`.
+- **`as_user`**: query param `?as_user=<uuid>` OU header `X-As-User:
+  <uuid>`. Só tem efeito para admin (404 se o `uuid` não existir); um
+  usuário comum passando qualquer um dos dois é **silenciosamente ignorado**
+  (nunca erro, nunca vaza dado de outro usuário). Criar um recurso com
+  `as_user` ativo cria em nome do usuário alvo (`owner_id` = alvo), e o
+  `AuditLog` registra o admin como ator (`user_id`) com
+  `details.as_user = <alvo>`.
+- **Validações cruzadas de dono** (sempre 404, nunca 403): `MediaAsset` só
+  aceita `channel_id` de um canal do mesmo dono (`PATCH
+  /media-assets/{id}`, `POST .../analyze`); `Source.default_channel_id`
+  idem; `PlatformAccount` só aceita `channel_id` de um canal do mesmo dono
+  (`POST`/`PATCH /accounts`); `POST /publications/batch` resolve **um único
+  dono** (`Scope.create_owner_id`) e só enxerga clips/contas desse dono —
+  publicar o clip de um usuário na conta de outro é impossível mesmo para
+  admin sem `as_user` (nesse caso o dono efetivo é o próprio admin).
+- **Hook do tusd** (`app/routers/uploads.py`): `pre-create` identifica o
+  usuário pela sessão, valida que `source_id` (e `channel_id`, se enviado)
+  pertencem a ele — ou a qualquer dono, se quem faz upload é admin, caso em
+  que o `MediaAsset` final pertence ao dono da Source, nunca ao admin — e
+  checa a cota de armazenamento (`Upload.Size` do evento) antes de aceitar.
+  A resposta do hook usa `ChangeFileInfo.MetaData` para acrescentar
+  `owner_id` ao metadata do upload; tusd ecoa esse metadata de volta no
+  `post-finish`, que **só** cria o `MediaAsset` se `metadata.owner_id` bate
+  com o dono real da `Source` (mismatch ou ausência → ignora silenciosamente,
+  não cria "órfão"). Isso fecha a parte do risco residual do tusd descrita
+  em "Auth" que dizia respeito a spoofing de dono; a parte de rede
+  (`post-finish`/`post-terminate` alcançáveis sem cookie) continua igual,
+  pois é inerente à versão do tusd em uso.
+  **Prefixo de storage por usuário**: aplicado nos objetos que o worker cria
+  (`clips/.../video.mp4` → `users/{owner_id}/clips/.../video.mp4`), mas
+  **não** nos uploads originais via tusd — a chave S3 de um upload tusd é o
+  `Upload.ID` gerado pelo próprio tusd, e a versão em uso não expõe uma
+  forma confiável de prefixá-la a partir do hook sem arriscar quebrar o
+  fluxo de upload existente. O isolamento real desses objetos continua
+  sendo o `owner_id` no banco (a rota de stream sempre resolve o
+  `MediaAsset`/`Clip` via `get_owned_or_404` antes de tocar o S3) — ver nota
+  em "Auth" sobre esse risco residual.
+- **Worker**: `run_analysis` copia `owner_id` do `AnalysisJob` para cada
+  `Clip` criado; `render_clip` preenche `Clip.size_bytes` com o tamanho do
+  arquivo renderizado. `ClipMetadata`/`Publication` (criadas por
+  `regenerate_metadata`/`POST /publications/batch`) não precisam copiar
+  `owner_id` de novo — a primeira é acessada via `clip.owner_id`, a segunda
+  já carimba `owner_id = Scope.create_owner_id` no próprio router.
+- **Cotas** (`app/quotas.py`, admin sempre isento): armazenamento = soma de
+  `media_assets.size_bytes` + `clips.size_bytes` do dono; excedida no
+  `pre-create` do tusd → **413**. Análises/dia (fuso `America/Sao_Paulo`,
+  conta `AnalysisJob.created_at` do dia local) excedida em `POST
+  /media-assets/{id}/analyze` → **429**. Canais (`Channel` do dono) excedido
+  em `POST /channels` → **409**. Defaults para usuário novo (usados quando o
+  admin não informa um valor explícito em `POST /api/admin/users`):
+  `DEFAULT_STORAGE_QUOTA_GB` (50), `DEFAULT_DAILY_ANALYSIS_QUOTA` (10),
+  `DEFAULT_MAX_CHANNELS` (4) — env vars, ver `app/config.py`. Um valor
+  explícito `null` no `POST`/`PATCH` de admin significa "ilimitado" e é
+  respeitado (não é substituído pelo default).
+- **Admin — gestão de usuários** (`app/routers/admin_users.py`, todas sob
+  `/api/admin/users`, `require_admin` → 403 para não-admin):
+  - `GET ""`: lista todos com `usage` (`storage_used_bytes`,
+    `storage_quota_bytes`, `analyses_today`, `daily_analysis_quota`,
+    `channels_count`, `max_channels`) e `clips_count`/`publications_count`.
+  - `POST ""` `{username, password (10+ chars), display_name?, email?,
+    is_admin?, storage_quota_gb?, daily_analysis_quota?, max_channels?,
+    must_change_password? (default true)}` → 201; 409 username/email
+    duplicado; 422 senha curta.
+  - `PATCH "/{id}"` (dados, cotas — `storage_quota_gb` vira
+    `storage_quota_bytes` internamente —, `is_active`, `is_admin`): 409 se o
+    admin tentar remover o próprio `is_admin`/desativar a si mesmo
+    (bloqueio incondicional), ou se a mudança deixasse o sistema sem nenhum
+    admin ativo (`_count_active_admins`, defesa em profundidade — na prática
+    só o caso "a si mesmo" é alcançável via API, já que quem chama o
+    endpoint precisa estar ativo e ser admin).
+  - `POST "/{id}/reset-password"` `{new_password}` → marca
+    `must_change_password=true`.
+  - `DELETE "/{id}"`: 409 se for a própria conta do admin; senão, **soft**
+    (`is_active=false`) se o usuário tiver qualquer dado próprio (linhas nas
+    7 tabelas donas + `audit_log.user_id`), **hard delete** só se
+    completamente vazio.
+- **Usuário**: `GET /api/me/usage` (uso/cotas próprios, sempre do usuário
+  logado, sem `as_user`). `POST /api/auth/change-password`
+  `{current_password, new_password (10+ chars)}` → limpa
+  `must_change_password`; 401 se `current_password` errado. `GET
+  /api/auth/me`/`UserRead` agora inclui `must_change_password`,
+  `display_name`, `email`, e as três cotas.
+- `get_current_user` já checava `is_active` no banco a cada request (não
+  precisou mudar) — uma conta desativada perde a sessão imediatamente, sem
+  esperar o JWT expirar.
+- **`AuditLog` novo**: `user.create`/`user.update`/`user.deactivate`/
+  `user.delete`/`user.reset_password`, `password.change`. Toda ação de
+  admin em nome de outro usuário (via `as_user`) carrega
+  `details.as_user = <uuid do alvo>` (ver `Scope.audit_details`).
+- **Convenção**: todo novo router que leia/escreva um recurso "dono-ável"
+  usa `app/scope.py::get_scope` (nunca reimplementar o filtro de dono à
+  mão) — ver "Convenções" abaixo.
+
+**Contrato de API estável a partir daqui** — qualquer mudança de campo/rota
+deve ser avisada explicitamente ao frontend-specialist. Mudança de contrato
+nesta etapa: `owner_id` foi adicionado à resposta de `Source`, `MediaAsset`
+(+ `size_bytes`), `Channel`, `AnalysisJob`, `Clip`, `PlatformAccount` e
+`Publication`; `UserRead`/`GET /api/auth/me` ganhou `display_name`, `email`,
+`must_change_password` e as três cotas.
+
 ## Testes
 
 `services/api/tests/`: `conftest.py` cria as tabelas `sources`/`media_assets`
@@ -322,8 +461,22 @@ via SQL cru (tipos só-Postgres, agora incluindo `default_channel_id`/
 `sqlalchemy.Uuid`/`JSON` genéricos em vez de `postgresql.UUID`/`ARRAY`**, de
 propósito, para rodar em SQLite nos testes e em Postgres em produção sem
 duas definições. `tests/factories.py` tem helpers (`insert_source`,
-`insert_media_asset`, `insert_clip`, `insert_account`, `insert_channel`) e
-`tests/fake_s3.py` um stub de cliente S3 (override de
+`insert_media_asset`, `insert_clip`, `insert_account`, `insert_channel`),
+todos com um parâmetro `owner_id` opcional — se omitido, cai num "dono
+padrão" resolvido via `contextvars` e setado automaticamente pela fixture
+`user` (`tests/conftest.py`), o que manteve os ~100 testes de
+single-tenant já existentes passando sem tocar em nenhum call site deles;
+testes de isolamento passam `owner_id=other_user.id` explicitamente. Além
+de `user`/`logged_in_client`, `conftest.py` tem `other_user`/
+`other_logged_in_client` (segundo tenant) e `admin_user`/`admin_client`
+(admin) — como sessão é cookie e um `TestClient` só tem um cookie jar,
+simular duas sessões simultâneas usa um segundo `TestClient`, mas
+**reaproveitando o portal anyio do primeiro** (`tc.portal = client.portal`,
+ver `tests/conftest.py::_second_client`) em vez de abrir um novo — abrir
+vários portais independentes por teste (um `with TestClient(app) as tc`
+por cliente extra) causava flakiness intermitente na suíte completa
+(request de um cliente ocasionalmente observando estado de outro),
+resolvida ao compartilhar o portal. `tests/fake_s3.py` um stub de cliente S3 (override de
 `app.storage.get_s3_client` via `app.dependency_overrides`) para testar
 Range/206 sem SeaweedFS real. `CELERY_TASK_ALWAYS_EAGER=true` nos testes
 evita depender de Redis — e a fixture `client` faz
@@ -354,12 +507,33 @@ jeito que o Postgres real faz) — fica coberta só pelo teste puro já
 existente em `test_rights_gate.py`, que é a fonte de verdade daquela lógica
 de qualquer forma.
 
+Cobertura de multiusuário: `test_scope_isolation.py` (usuário B não
+lista/lê/edita/exclui/faz stream de recurso de A em nenhum router —
+sempre 404 —; validações cruzadas de dono em `PATCH /media-assets`,
+`analyze`, `POST/PATCH /accounts`; admin vê tudo e filtra com `as_user`
+(query e header `X-As-User`); `as_user` de usuário comum é ignorado; audit
+log escopado por ator), `test_quotas.py` (413 armazenamento via hook do
+tusd, 429 análises/dia, 409 canais — e isenção do admin em cada caso),
+`test_admin_users.py` (CRUD de usuário, defaults de cota vindos do env,
+senha curta 422, username/email duplicado 409, guarda de
+last-admin/self-protection, reset-password + `must_change_password`,
+soft- vs hard-delete, `change-password`, sessão de usuário desativado
+morre imediatamente, `/api/me/usage`).
+
 ## Convenções
 
 - Toda mudança de modelo passa por uma migration Alembic (não editar o schema à mão).
 - Endpoints ficam em `app/routers/*`, um router por recurso, montados em `app/main.py`.
 - Schemas Pydantic (`app/schemas/*`) nunca são os modelos SQLAlchemy diretamente — sempre há uma camada de tradução.
 - Novo publisher de plataforma (`app/worker/publishers/*.py`) deve herdar de `Publisher` (base.py) e nunca reimplementar checagem de direitos — isso é responsabilidade exclusiva do rights gate, chamado antes do `upload()`.
+- **Todo novo router que lê/escreve um recurso "dono-ável" (tiver ou herdar
+  `owner_id`) usa `app/scope.py::get_scope`/`Scope.owned`/`get_owned_or_404`
+  — nunca reimplementar o filtro de dono à mão nem checar `owner_id`
+  manualmente num `if`.** Isso garante de graça: usuário comum só vê o
+  próprio dado, admin vê tudo e pode restringir com `as_user`, e todo
+  cross-owner vira 404 (nunca 403). Ao adicionar um recurso novo, decida se
+  ele precisa de `owner_id` próprio (a maioria precisa) ou se é acessível só
+  através de outro recurso já escopado (como `ClipMetadata` via `Clip`).
 - `ClipDetailRead.metadata` lê do atributo ORM `Clip.metadata_entries` via
   `validation_alias` — o nome `metadata` está reservado em qualquer
   `DeclarativeBase` do SQLAlchemy (é o `MetaData` da classe), então nenhum

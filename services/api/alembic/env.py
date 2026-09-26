@@ -14,6 +14,7 @@ from app.db import Base  # noqa: E402
 from app.models import (  # noqa: E402,F401  (register models on Base.metadata)
     analysis_job,
     audit_log,
+    channel,
     clip,
     clip_metadata,
     media_asset,

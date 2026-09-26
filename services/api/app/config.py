@@ -67,6 +67,14 @@ class Settings(BaseSettings):
     cleaned up per-task (see app/worker/analysis/pipeline.py, app/worker/
     render/pipeline.py) — nothing here is meant to survive a task."""
 
+    # --- Multi-tenant defaults (see CLAUDE.md "Multiusuário") ---
+    # Applied by `POST /api/admin/users` whenever the admin doesn't set a
+    # given quota explicitly (an explicit `null` means "unlimited" and is
+    # respected as-is, it is NOT replaced by these defaults).
+    default_storage_quota_gb: int = 50
+    default_daily_analysis_quota: int = 10
+    default_max_channels: int = 4
+
     @model_validator(mode="after")
     def _require_secret_key(self) -> "Settings":
         if not self.secret_key or len(self.secret_key) < 32:
