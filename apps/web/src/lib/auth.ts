@@ -12,6 +12,8 @@ export type UserRead = {
   storage_quota_bytes: number | null;
   daily_analysis_quota: number | null;
   max_channels: number | null;
+  max_active_series?: number | null;
+  monthly_ai_budget_usd?: number | null;
   created_at: string;
   last_login_at: string | null;
 };

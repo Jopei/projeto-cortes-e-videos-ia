@@ -99,4 +99,27 @@ export const INTEGRATION_HELP: Record<IntegrationId, IntegrationHelp> = {
     notes: ["Sem a chave, o sistema gera títulos simples automaticamente."],
     links: [{ label: "Anthropic Console — API Keys", href: "https://console.anthropic.com/settings/keys" }],
   },
+  elevenlabs: {
+    platformLabel: "ElevenLabs (narração)",
+    steps: [
+      "Acesse elevenlabs.io e entre (ou crie uma conta).",
+      'Clique no seu perfil e abra "Profile > API Keys".',
+      'Clique em "Create API Key", defina as permissões necessárias (Text to Speech) e copie a chave.',
+    ],
+    notes: [
+      "Uso comercial das vozes (publicar vídeos monetizados) exige um plano pago; o plano gratuito é só para teste.",
+      "A chave é usada para gerar a narração dos episódios das Séries IA.",
+    ],
+    links: [{ label: "ElevenLabs — API Keys", href: "https://elevenlabs.io/app/settings/api-keys" }],
+  },
+  openai: {
+    platformLabel: "OpenAI",
+    steps: [
+      "Acesse platform.openai.com/api-keys e entre na sua conta.",
+      'Adicione créditos em "Billing" se ainda não houver saldo.',
+      'Clique em "Create new secret key" e copie a chave (ela só aparece uma vez).',
+    ],
+    notes: ["Reservada para provedores de imagem/vídeo que usem a OpenAI nas Séries IA."],
+    links: [{ label: "OpenAI — API keys", href: "https://platform.openai.com/api-keys" }],
+  },
 };

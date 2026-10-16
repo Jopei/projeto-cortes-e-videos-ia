@@ -65,6 +65,8 @@ export type Publication = {
   error: string | null;
   block_reasons: string[] | null;
   created_at: string;
+  /** Series IA episode publications (AI-generated content label). */
+  synthetic_media?: boolean;
 };
 
 export type PublicationBatchInput = {

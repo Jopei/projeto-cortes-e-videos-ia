@@ -4,6 +4,8 @@ import { CLIP_STATUS_LABELS, SIGNAL_LABELS, SIGNAL_NAMES, clipThumbnailUrl, type
 import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { ClipStatusBadge } from "@/components/ui/StatusBadges";
 import { formatDuration } from "@/lib/tus";
+import { AiBadge } from "@/components/series/badges";
+import { Badge } from "@/components/ui/Badge";
 
 function SignalBars({ signals }: { signals: Record<string, number> | null }) {
   if (!signals) return <p className="text-xs text-slate-400 dark:text-slate-600">Sem sinais.</p>;
@@ -38,6 +40,7 @@ export function ClipCard({
   onOpenDetail: () => void;
 }) {
   const duration = clip.end_s - clip.start_s;
+  const isEpisode = !!clip.episode_id;
   const showOwner = useShowOwnerColumn();
   const ownerLabel = useOwnerLabel();
 
@@ -56,13 +59,20 @@ export function ClipCard({
             type="checkbox"
             checked={selected}
             onChange={onToggleSelect}
-            aria-label={`Selecionar corte de ${formatDuration(duration)}`}
+            aria-label={isEpisode ? `Selecionar episódio ${clip.episode_number ?? ""} da série` : `Selecionar corte de ${formatDuration(duration)}`}
             className="h-4 w-4 rounded border-slate-300"
           />
           Selecionar
         </label>
         <ClipStatusBadge status={clip.status} />
       </div>
+
+      {isEpisode || clip.synthetic_media ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {isEpisode ? <Badge variant="neutral">Série · Ep. {clip.episode_number ?? "?"}</Badge> : null}
+          {clip.synthetic_media || isEpisode ? <AiBadge /> : null}
+        </div>
+      ) : null}
 
       {showOwner ? (
         <p className="truncate text-xs text-slate-500 dark:text-slate-400">Dono: {ownerLabel(clip.owner_id)}</p>
@@ -85,16 +95,18 @@ export function ClipCard({
             {CLIP_STATUS_LABELS[clip.status]}
           </span>
         )}
-        <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs text-white">
-          {formatDuration(duration)}
-        </span>
+        {isEpisode ? null : (
+          <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs text-white">
+            {formatDuration(duration)}
+          </span>
+        )}
       </button>
 
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-slate-500 dark:text-slate-400">
-          Score: {clip.score != null ? clip.score.toFixed(2) : "—"}
+          {isEpisode ? "Episódio de série" : `Score: ${clip.score != null ? clip.score.toFixed(2) : "—"}`}
         </span>
-        <SignalBars signals={clip.signals} />
+        {isEpisode ? null : <SignalBars signals={clip.signals} />}
       </div>
 
       <button

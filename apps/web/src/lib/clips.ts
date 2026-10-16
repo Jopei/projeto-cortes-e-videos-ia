@@ -28,8 +28,9 @@ export const SIGNAL_LABELS: Record<SignalName, string> = {
 export type Clip = {
   id: string;
   owner_id: string;
-  job_id: string;
-  media_asset_id: string;
+  /** Null for Series IA episode clips (no analysis job / source video). */
+  job_id: string | null;
+  media_asset_id: string | null;
   channel_id: string | null;
   start_s: number;
   end_s: number;
@@ -41,6 +42,11 @@ export type Clip = {
   transcript: string | null;
   status: ClipStatus;
   created_at: string;
+  /** Series IA episode clips only. */
+  episode_id?: string | null;
+  series_id?: string | null;
+  episode_number?: number | null;
+  synthetic_media?: boolean;
 };
 
 /** Mirrors app/schemas/clip_metadata.py::ClipMetadataRead. */

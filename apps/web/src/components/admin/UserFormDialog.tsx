@@ -48,6 +48,14 @@ export function UserFormDialog(props: CreateProps | EditProps) {
     existing?.max_channels != null ? String(existing.max_channels) : "",
   );
   const [unlimitedChannels, setUnlimitedChannels] = useState(existing ? existing.max_channels === null : false);
+  const [maxActiveSeries, setMaxActiveSeries] = useState<string>(
+    existing?.max_active_series != null ? String(existing.max_active_series) : "",
+  );
+  const [unlimitedSeries, setUnlimitedSeries] = useState(existing ? existing.max_active_series == null : false);
+  const [aiBudget, setAiBudget] = useState<string>(
+    existing?.monthly_ai_budget_usd != null ? String(existing.monthly_ai_budget_usd) : "",
+  );
+  const [unlimitedAiBudget, setUnlimitedAiBudget] = useState(existing ? existing.monthly_ai_budget_usd == null : false);
   const [mustChangePassword, setMustChangePassword] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
@@ -89,6 +97,8 @@ export function UserFormDialog(props: CreateProps | EditProps) {
           storage_quota_gb: unlimitedStorage ? null : storageQuotaGb ? Number(storageQuotaGb) : undefined,
           daily_analysis_quota: unlimitedAnalysis ? null : dailyAnalysisQuota ? Number(dailyAnalysisQuota) : undefined,
           max_channels: unlimitedChannels ? null : maxChannels ? Number(maxChannels) : undefined,
+          max_active_series: unlimitedSeries ? null : maxActiveSeries ? Number(maxActiveSeries) : undefined,
+          monthly_ai_budget_usd: unlimitedAiBudget ? null : aiBudget ? Number(aiBudget) : undefined,
           must_change_password: mustChangePassword,
         };
         await props.onSubmit(payload);
@@ -101,6 +111,8 @@ export function UserFormDialog(props: CreateProps | EditProps) {
           storage_quota_gb: unlimitedStorage ? null : storageQuotaGb ? Number(storageQuotaGb) : null,
           daily_analysis_quota: unlimitedAnalysis ? null : dailyAnalysisQuota ? Number(dailyAnalysisQuota) : null,
           max_channels: unlimitedChannels ? null : maxChannels ? Number(maxChannels) : null,
+          max_active_series: unlimitedSeries ? null : maxActiveSeries ? Number(maxActiveSeries) : null,
+          monthly_ai_budget_usd: unlimitedAiBudget ? null : aiBudget ? Number(aiBudget) : null,
         };
         await props.onSubmit(payload);
       }
@@ -265,6 +277,21 @@ export function UserFormDialog(props: CreateProps | EditProps) {
             onValueChange={setMaxChannels}
             unlimited={unlimitedChannels}
             onUnlimitedChange={setUnlimitedChannels}
+          />
+          <QuotaField
+            label="Séries IA ativas (máx.)"
+            value={maxActiveSeries}
+            onValueChange={setMaxActiveSeries}
+            unlimited={unlimitedSeries}
+            onUnlimitedChange={setUnlimitedSeries}
+          />
+          <QuotaField
+            label="Orçamento mensal de IA (US$)"
+            value={aiBudget}
+            onValueChange={setAiBudget}
+            unlimited={unlimitedAiBudget}
+            onUnlimitedChange={setUnlimitedAiBudget}
+            step="0.5"
           />
         </fieldset>
 

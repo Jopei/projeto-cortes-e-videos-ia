@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 
 /** Integrations are a superset of `PlatformValue` (adds "anthropic", used
- * for AI-generated titles/hashtags — not a publishing platform). */
+ * for AI-generated titles/hashtags, and "elevenlabs"/"openai" for Séries IA — not publishing platforms). */
 export const INTEGRATION_IDS = [
   "youtube",
   "tiktok",
@@ -10,6 +10,8 @@ export const INTEGRATION_IDS = [
   "bilibili",
   "vimeo",
   "anthropic",
+  "elevenlabs",
+  "openai",
 ] as const;
 export type IntegrationId = (typeof INTEGRATION_IDS)[number];
 

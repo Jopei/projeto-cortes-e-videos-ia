@@ -9,9 +9,13 @@ export const LICENSE_TYPES = [
   "cc_by_nd",
   "licensed",
   "own",
+  "ai_generated",
 ] as const;
 
 export type LicenseType = (typeof LICENSE_TYPES)[number];
+
+/** `ai_generated` is created only by Séries IA (never chosen by hand). */
+export const SELECTABLE_LICENSE_TYPES = LICENSE_TYPES.filter((t) => t !== "ai_generated");
 
 export const LICENSE_TYPE_LABELS: Record<LicenseType, string> = {
   public_domain: "Domínio público",
@@ -21,6 +25,7 @@ export const LICENSE_TYPE_LABELS: Record<LicenseType, string> = {
   cc_by_nd: "CC BY-ND (Sem derivações)",
   licensed: "Licenciado",
   own: "Conteúdo próprio",
+  ai_generated: "Gerado por IA",
 };
 
 export const ALLOWED_PLATFORM_OPTIONS = [

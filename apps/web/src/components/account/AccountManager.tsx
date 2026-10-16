@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
 import { getMyUsage, type UsageRead } from "@/lib/me";
 import { formatBytes } from "@/lib/tus";
+import { formatUsd } from "@/lib/format";
 import { useAuth } from "@/lib/user-context";
 import { ChangePasswordForm } from "@/components/account/ChangePasswordForm";
 import { UsageBar } from "@/components/ui/UsageBar";
@@ -99,6 +100,18 @@ export function AccountManager() {
               used={usage.channels_count}
               quota={usage.max_channels}
               formatValue={(v) => String(v)}
+            />
+            <UsageBar
+              label="Séries IA ativas"
+              used={usage.active_series ?? 0}
+              quota={usage.max_active_series ?? null}
+              formatValue={(v) => String(v)}
+            />
+            <UsageBar
+              label="Gasto com IA neste mês (US$)"
+              used={usage.ai_spend_month_usd ?? 0}
+              quota={usage.monthly_ai_budget_usd ?? null}
+              formatValue={(v) => formatUsd(v)}
             />
           </div>
         ) : (

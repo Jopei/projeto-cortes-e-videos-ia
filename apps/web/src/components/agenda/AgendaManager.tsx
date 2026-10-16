@@ -1,5 +1,6 @@
 "use client";
 
+import { AiBadge } from "@/components/series/badges";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { useChannelContext } from "@/lib/channel-context";
@@ -200,7 +201,10 @@ export function AgendaManager() {
             <dd>{PLATFORM_LABELS[detailItem.platform]}</dd>
             <dt className="font-medium text-slate-500 dark:text-slate-400">Status</dt>
             <dd>
-              <PublicationStatusBadge status={detailItem.status} />
+              <span className="flex flex-wrap items-center gap-1.5">
+                <PublicationStatusBadge status={detailItem.status} />
+                {detailItem.synthetic_media ? <AiBadge /> : null}
+              </span>
             </dd>
             <dt className="font-medium text-slate-500 dark:text-slate-400">Agendado para</dt>
             <dd>{detailItem.scheduled_at ? new Date(detailItem.scheduled_at).toLocaleString("pt-BR") : "—"}</dd>

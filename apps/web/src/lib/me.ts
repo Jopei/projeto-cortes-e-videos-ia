@@ -9,6 +9,10 @@ export type UsageRead = {
   daily_analysis_quota: number | null;
   channels_count: number;
   max_channels: number | null;
+  active_series: number;
+  max_active_series: number | null;
+  ai_spend_month_usd: number;
+  monthly_ai_budget_usd: number | null;
 };
 
 export function getMyUsage(signal?: AbortSignal): Promise<UsageRead> {

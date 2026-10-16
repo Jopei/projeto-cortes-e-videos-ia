@@ -2,9 +2,13 @@ export const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
   "http://localhost:18000";
 
+/** Business errors from the Series IA routes: `{"detail": {"code", "message"}}`. */
+export type ApiBusinessErrorDetail = { code: string; message?: string };
+
 export type FastApiValidationError = {
   detail?:
     | string
+    | ApiBusinessErrorDetail
     | {
         loc?: (string | number)[];
         msg: string;
@@ -15,12 +19,17 @@ export type FastApiValidationError = {
 export class ApiError extends Error {
   status?: number;
   detail?: FastApiValidationError["detail"];
+  /** Set when `detail` is a `{code, message}` object (Series IA business errors). */
+  code?: string;
 
   constructor(message: string, status?: number, detail?: FastApiValidationError["detail"]) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
+    if (detail && typeof detail === "object" && !Array.isArray(detail) && typeof detail.code === "string") {
+      this.code = detail.code;
+    }
   }
 }
 
@@ -28,6 +37,7 @@ export class ApiError extends Error {
 export function formatApiErrorDetail(detail: FastApiValidationError["detail"]): string {
   if (!detail) return "Erro desconhecido.";
   if (typeof detail === "string") return detail;
+  if (!Array.isArray(detail)) return detail.message || detail.code;
   return detail
     .map((issue) => {
       const field = issue.loc?.filter((part) => part !== "body").join(".") || "campo";

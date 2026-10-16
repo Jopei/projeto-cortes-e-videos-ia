@@ -1,5 +1,6 @@
 "use client";
 
+import { AiBadge } from "@/components/series/badges";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
@@ -175,7 +176,10 @@ export function PublicacoesManager() {
                   <td className={tdClass}>{PLATFORM_LABELS[pub.platform]}</td>
                   {showOwner ? <td className={tdClass}>{ownerLabel(pub.owner_id)}</td> : null}
                   <td className={tdClass}>
-                    <PublicationStatusBadge status={pub.status} />
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <PublicationStatusBadge status={pub.status} />
+                      {pub.synthetic_media ? <AiBadge /> : null}
+                    </span>
                   </td>
                   <td className={tdClass}>
                     {pub.scheduled_at ? new Date(pub.scheduled_at).toLocaleString("pt-BR") : "—"}

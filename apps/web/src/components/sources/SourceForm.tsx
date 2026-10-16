@@ -5,7 +5,7 @@ import { useId, useState } from "react";
 import {
   ALLOWED_PLATFORM_OPTIONS,
   LICENSE_TYPE_LABELS,
-  LICENSE_TYPES,
+  SELECTABLE_LICENSE_TYPES,
   type LicenseType,
   type Source,
   type SourceInput,
@@ -209,7 +209,7 @@ export function SourceForm({ source, onSubmit, onCancel }: SourceFormProps) {
             onChange={(e) => update("license_type", e.target.value as LicenseType)}
             className={inputClass}
           >
-            {LICENSE_TYPES.map((type) => (
+            {SELECTABLE_LICENSE_TYPES.map((type) => (
               <option key={type} value={type}>
                 {LICENSE_TYPE_LABELS[type]}
               </option>

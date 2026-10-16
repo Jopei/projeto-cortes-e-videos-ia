@@ -8,6 +8,13 @@ import {
 
 /** Base badge for the license type itself (neutral/informational). */
 export function LicenseTypeBadge({ licenseType }: { licenseType: LicenseType }) {
+  if (licenseType === "ai_generated") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-indigo-400 bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-900 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-200">
+        <span aria-hidden="true">✦</span> {LICENSE_TYPE_LABELS[licenseType]}
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
       {LICENSE_TYPE_LABELS[licenseType]}

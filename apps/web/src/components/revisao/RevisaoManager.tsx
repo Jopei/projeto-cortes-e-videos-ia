@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
 import { useChannelContext } from "@/lib/channel-context";
+import { seriesErrorMessage } from "@/lib/series-errors";
 import {
   CLIP_STATUS_LABELS,
   bulkUpdateClips,
@@ -117,7 +118,7 @@ export function RevisaoManager() {
       clearSelection();
       load();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Erro na ação em lote.", "error");
+      showToast(seriesErrorMessage(err, "Erro na ação em lote."), "error");
     } finally {
       setBulkLoading(false);
     }
@@ -130,7 +131,7 @@ export function RevisaoManager() {
         showToast(status === "approved" ? "Corte aprovado." : "Corte rejeitado.", "success");
         load();
       } catch (err) {
-        showToast(err instanceof ApiError ? err.message : "Erro ao registrar decisão.", "error");
+        showToast(seriesErrorMessage(err, "Erro ao registrar decisão."), "error");
       }
     },
     [load, showToast],

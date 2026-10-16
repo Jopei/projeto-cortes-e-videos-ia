@@ -1,5 +1,6 @@
 "use client";
 
+import { formatUsd } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import {
@@ -102,6 +103,8 @@ export function AdminUsersManager() {
                 <th scope="col" className={thClass}>Armazenamento</th>
                 <th scope="col" className={thClass}>Análises hoje</th>
                 <th scope="col" className={thClass}>Canais</th>
+                <th scope="col" className={thClass}>Séries IA ativas</th>
+                <th scope="col" className={thClass}>IA no mês</th>
                 <th scope="col" className={thClass}>Cortes / Publicações</th>
                 <th scope="col" className={thClass}>Ações</th>
               </tr>
@@ -140,6 +143,13 @@ export function AdminUsersManager() {
                   </td>
                   <td className={tdClass}>
                     {u.is_admin ? "—" : `${u.usage.channels_count}${u.usage.max_channels != null ? ` / ${u.usage.max_channels}` : ""}`}
+                  </td>
+                  <td className={tdClass}>
+                    {u.is_admin ? "—" : `${u.usage.active_series ?? 0}${u.usage.max_active_series != null ? ` / ${u.usage.max_active_series}` : ""}`}
+                  </td>
+                  <td className={tdClass}>
+                    {formatUsd(u.usage.ai_spend_month_usd ?? 0)}
+                    {!u.is_admin && u.usage.monthly_ai_budget_usd != null ? ` / ${formatUsd(u.usage.monthly_ai_budget_usd)}` : ""}
                   </td>
                   <td className={tdClass}>
                     {u.clips_count} / {u.publications_count}

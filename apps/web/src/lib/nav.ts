@@ -31,6 +31,15 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    id: "series",
+    label: "Séries IA",
+    href: "/series",
+    items: [
+      { href: "/series", label: "Minhas séries" },
+      { href: "/series/nova", label: "Nova série" },
+    ],
+  },
+  {
     id: "encurtadores",
     label: "Encurtadores",
     href: "/encurtadores",

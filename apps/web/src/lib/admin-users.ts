@@ -21,6 +21,8 @@ export type AdminUserCreateInput = {
   storage_quota_gb?: number | null;
   daily_analysis_quota?: number | null;
   max_channels?: number | null;
+  max_active_series?: number | null;
+  monthly_ai_budget_usd?: number | null;
   must_change_password?: boolean;
 };
 
@@ -33,6 +35,8 @@ export type AdminUserUpdateInput = {
   storage_quota_gb?: number | null;
   daily_analysis_quota?: number | null;
   max_channels?: number | null;
+  max_active_series?: number | null;
+  monthly_ai_budget_usd?: number | null;
 };
 
 export function listAdminUsers(signal?: AbortSignal): Promise<AdminUserRead[]> {

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ApiError } from "@/lib/api";
+import Link from "next/link";
+import { seriesErrorMessage } from "@/lib/series-errors";
+import { AiBadge } from "@/components/series/badges";
 import { PLATFORM_LABELS, PLATFORM_VALUES, type PlatformValue } from "@/lib/channels";
 import {
   clipVideoUrl,
@@ -85,7 +87,7 @@ export function ClipDetailDialog({
       }
       setMetadataDrafts(drafts);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Não foi possível carregar o corte.");
+      setError(seriesErrorMessage(err, "Não foi possível carregar o corte."));
     } finally {
       setLoading(false);
     }
@@ -124,7 +126,7 @@ export function ClipDetailDialog({
       showToast("Recorte salvo. O clipe entrou em renderização novamente.", "success");
       onChanged();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Erro ao salvar o recorte.", "error");
+      showToast(seriesErrorMessage(err, "Erro ao salvar o recorte."), "error");
     } finally {
       setTrimSaving(false);
     }
@@ -144,7 +146,7 @@ export function ClipDetailDialog({
       setMetadataDrafts((prev) => ({ ...prev, [platform]: toEditable(updated) }));
       showToast(`Metadados de ${PLATFORM_LABELS[platform]} salvos.`, "success");
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Erro ao salvar metadados.", "error");
+      showToast(seriesErrorMessage(err, "Erro ao salvar metadados."), "error");
     } finally {
       setSavingPlatform(null);
     }
@@ -157,7 +159,7 @@ export function ClipDetailDialog({
       await regenerateClipMetadata(detail.id, platform === "all" ? undefined : platform);
       showToast("Regeneração de metadados enfileirada.", "success");
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Erro ao regenerar metadados.", "error");
+      showToast(seriesErrorMessage(err, "Erro ao regenerar metadados."), "error");
     } finally {
       setRegenerating(null);
     }
@@ -172,7 +174,7 @@ export function ClipDetailDialog({
       showToast(status === "approved" ? "Corte aprovado." : "Corte rejeitado.", "success");
       onChanged();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Erro ao registrar decisão.", "error");
+      showToast(seriesErrorMessage(err, "Erro ao registrar decisão."), "error");
     } finally {
       setDecisionLoading(false);
     }
@@ -193,7 +195,12 @@ export function ClipDetailDialog({
       ) : detail ? (
         <div className="flex flex-col gap-6 lg:flex-row">
           <div className="flex flex-col gap-3 lg:w-72 lg:shrink-0">
-            <div className="aspect-[9/16] w-full overflow-hidden rounded-md bg-black">
+            <div className="relative aspect-[9/16] w-full overflow-hidden rounded-md bg-black">
+              {detail.synthetic_media || detail.episode_id ? (
+                <span className="pointer-events-none absolute left-2 top-2 z-10">
+                  <AiBadge label="Conteúdo gerado por IA" />
+                </span>
+              ) : null}
               {detail.storage_key ? (
                 // eslint-disable-next-line jsx-a11y/media-has-caption -- captions come burned into the video when enabled
                 <video controls className="h-full w-full" src={clipVideoUrl(detail.id)} />
@@ -210,6 +217,22 @@ export function ClipDetailDialog({
               </span>
             </div>
 
+            {detail.episode_id ? (
+              <div className="flex flex-col gap-1 rounded-md border border-indigo-300 bg-indigo-50 p-3 text-xs text-indigo-900 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-200">
+                <p className="font-semibold">Série · Ep. {detail.episode_number ?? "?"}</p>
+                <p>O recorte não se aplica a episódios de série. Aprovar ou rejeitar aqui executa a ação no episódio.</p>
+                {detail.series_id ? (
+                  <Link
+                    href={`/series/${detail.series_id}?aba=episodios&ep=${detail.episode_number ?? ""}`}
+                    className="font-medium underline"
+                  >
+                    Abrir episódio na série
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+
+            {detail.episode_id ? null : (
             <fieldset className="flex flex-col gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-700">
               <legend className="px-1 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
                 Ajuste fino (segundos)
@@ -264,6 +287,7 @@ export function ClipDetailDialog({
                 {trimSaving ? "Salvando…" : "Salvar recorte (re-renderiza)"}
               </button>
             </fieldset>
+            )}
 
             {detail.transcript ? (
               <details className="rounded-md border border-slate-200 p-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
