@@ -408,6 +408,18 @@ def regenerate_metadata(clip_id: str, platform: str | None = None) -> dict[str, 
         work_name = source.work_name if source is not None else (media_asset.filename if media_asset else "Untitled")
         attribution_text = source.attribution_text if source is not None else None
 
+        # Series IA episode clip: title "{série} — Ep. {n}: {título}", work_name =
+        # series title, transcript = the narration (set at assembly).
+        episode_title: str | None = None
+        if clip.episode_id is not None:
+            from app.models.story import StoryEpisode, StorySeries
+
+            episode = session.get(StoryEpisode, clip.episode_id)
+            series = session.get(StorySeries, episode.series_id) if episode is not None else None
+            if episode is not None and series is not None:
+                work_name = series.title or work_name
+                episode_title = f"{work_name} — Ep. {episode.number}: {episode.title or ''}".rstrip(": ").strip()
+
         updated = []
         for plat in target_platforms:
             account = next((a for a in accounts if a.platform.value == plat), None)
@@ -430,6 +442,10 @@ def regenerate_metadata(clip_id: str, platform: str | None = None) -> dict[str, 
                 attribution_text=attribution_text,
                 api_key=get_integration_value("anthropic", "api_key"),
             )
+            if episode_title is not None:
+                from app.worker.metadata.pipeline import _title_max_for, _truncate_title
+
+                title = _truncate_title(episode_title, _title_max_for(template, plat))
 
             if entry is None:
                 entry = ClipMetadata(clip_id=clip.id, platform=plat)

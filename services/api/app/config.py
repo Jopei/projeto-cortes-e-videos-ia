@@ -118,6 +118,23 @@ class Settings(BaseSettings):
     default_max_active_series: int | None = 1
     default_series_budget_usd: float | None = None
     default_monthly_ai_budget_usd: float | None = None
+    story_stuck_minutes: int = 20
+    """A story episode/media job sitting in a transient state longer than
+    this is considered stuck and re-driven by `series_tick`."""
+    story_tick_lock_s: int = 540
+    genmedia_download_max_mb: int = 200
+    claude_prices_per_mtok: str = (
+        '{"claude-opus": [15.0, 75.0], "claude-sonnet": [3.0, 15.0], "claude-haiku": [1.0, 5.0], "default": [3.0, 15.0]}'
+    )
+    """JSON `{model-id-prefix: [input_usd_per_mtok, output_usd_per_mtok]}`
+    used to price Claude calls (longest matching prefix wins, `default` is
+    the fallback). Override via CLAUDE_PRICES_PER_MTOK."""
+    elevenlabs_base_url: str = "https://api.elevenlabs.io"
+    elevenlabs_default_model: str = "eleven_multilingual_v2"
+    """Used when the `elevenlabs.model_id` integration field is empty."""
+    elevenlabs_output_format: str = "mp3_44100_128"
+    elevenlabs_tts_path: str = "/v1/text-to-speech/{voice_id}/with-timestamps"
+    elevenlabs_voices_path: str = "/v1/voices"
 
     @field_validator("default_max_active_series", "default_series_budget_usd", "default_monthly_ai_budget_usd", mode="before")
     @classmethod
