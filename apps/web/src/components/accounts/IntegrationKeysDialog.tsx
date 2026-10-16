@@ -14,8 +14,8 @@ import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/Toast";
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50";
-const labelClass = "text-sm font-medium text-slate-700 dark:text-slate-200";
+  "field-control w-full";
+const labelClass = "text-sm font-medium text-fg-muted";
 
 const SOURCE_LABELS: Record<string, string> = {
   db: "Banco",
@@ -172,24 +172,24 @@ export function IntegrationKeysDialog({
           </div>
 
           {error ? (
-            <p role="alert" className="rounded-md border border-red-400 bg-red-50 p-2 text-sm text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200">
+            <p role="alert" className="border-danger/40 bg-danger-soft text-fg rounded-lg border p-2 text-sm">
               {error}
             </p>
           ) : null}
 
           {integration.redirect_uri ? (
-            <div className="flex flex-col gap-1 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+            <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface-2 p-3">
+              <span className="text-xs font-medium text-fg-muted">
                 Cadastre exatamente esta URL como redirect URI no painel da plataforma:
               </span>
               <div className="flex items-center gap-2">
-                <code className="flex-1 truncate text-xs text-slate-800 dark:text-slate-100">
+                <code className="flex-1 truncate text-xs text-fg">
                   {integration.redirect_uri}
                 </code>
                 <button
                   type="button"
                   onClick={handleCopyRedirect}
-                  className="shrink-0 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="btn btn-secondary btn-sm shrink-0"
                 >
                   Copiar
                 </button>
@@ -224,7 +224,7 @@ export function IntegrationKeysDialog({
                       <button
                         type="button"
                         onClick={() => setVisible((v) => ({ ...v, [field.key]: !v[field.key] }))}
-                        className="shrink-0 rounded-md border border-slate-300 px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                        className="btn btn-secondary btn-sm shrink-0"
                       >
                         {isVisible ? "Ocultar" : "Mostrar"}
                       </button>
@@ -233,7 +233,7 @@ export function IntegrationKeysDialog({
                       <button
                         type="button"
                         onClick={() => updateField(field.key, { value: "", removed: true })}
-                        className="self-start text-xs font-medium text-red-600 hover:underline dark:text-red-400"
+                        className="self-start text-xs font-medium text-danger hover:underline"
                       >
                         {state.removed ? "Valor será removido ao salvar" : "Remover valor"}
                       </button>
@@ -256,10 +256,10 @@ export function IntegrationKeysDialog({
           {testResult ? (
             <p
               role="status"
-              className={`rounded-md border p-2 text-sm ${
+              className={`rounded-lg border p-2 text-sm ${
                 testResult.ok
-                  ? "border-emerald-400 bg-emerald-50 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200"
-                  : "border-red-400 bg-red-50 text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200"
+                  ? "border-success/40 bg-success-soft text-fg"
+                  : "border-danger/40 bg-danger-soft text-fg"
               }`}
             >
               {testResult.message}
@@ -270,7 +270,7 @@ export function IntegrationKeysDialog({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn btn-primary"
             >
               {saving ? "Salvando…" : "Salvar"}
             </button>
@@ -278,7 +278,7 @@ export function IntegrationKeysDialog({
               type="button"
               onClick={handleTest}
               disabled={testing}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="btn btn-secondary"
             >
               {testing ? "Testando…" : "Testar"}
             </button>
@@ -286,14 +286,14 @@ export function IntegrationKeysDialog({
               type="button"
               onClick={() => setConfirmClearOpen(true)}
               disabled={!integration.configured}
-              className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950/40"
+              className="btn btn-danger-outline"
             >
               Limpar tudo
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="ml-auto rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="btn btn-secondary ml-auto"
             >
               Fechar
             </button>
@@ -303,7 +303,7 @@ export function IntegrationKeysDialog({
 
       <Dialog open={confirmClearOpen} onClose={() => setConfirmClearOpen(false)} title="Limpar chaves">
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-700 dark:text-slate-200">
+          <p className="text-sm text-fg-muted">
             Remover todas as chaves salvas de <span className="font-semibold">{integration.name}</span>?
             A integração volta a usar as variáveis do <code>.env</code> (se houver).
           </p>
@@ -312,14 +312,14 @@ export function IntegrationKeysDialog({
               type="button"
               onClick={handleClearAll}
               disabled={clearing}
-              className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn btn-danger"
             >
               {clearing ? "Limpando…" : "Limpar tudo"}
             </button>
             <button
               type="button"
               onClick={() => setConfirmClearOpen(false)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="btn btn-secondary"
             >
               Cancelar
             </button>

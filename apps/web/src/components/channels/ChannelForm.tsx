@@ -22,8 +22,8 @@ function slugify(value: string): string {
 }
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50";
-const labelClass = "text-sm font-medium text-slate-700 dark:text-slate-200";
+  "field-control w-full";
+const labelClass = "text-sm font-medium text-fg-muted";
 
 export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
   const [name, setName] = useState(channel?.name ?? "");
@@ -151,16 +151,16 @@ export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-5 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950"
+      className="flex flex-col gap-5 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4"
     >
       {error ? (
-        <p role="alert" className="rounded-md border border-red-400 bg-red-50 p-2 text-sm text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200">
+        <p role="alert" className="border-danger/40 bg-danger-soft text-fg rounded-lg border p-2 text-sm">
           {error}
         </p>
       ) : null}
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
-        <legend className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-50">Identidade</legend>
+        <legend className="mb-1 text-sm font-semibold text-fg">Identidade</legend>
         <div className="flex flex-col gap-1">
           <label htmlFor="channel-name" className={labelClass}>
             Nome *
@@ -207,9 +207,9 @@ export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
               type="color"
               value={color}
               onChange={(e) => setColor(e.target.value)}
-              className="h-9 w-14 cursor-pointer rounded border border-slate-300 dark:border-slate-600"
+              className="h-9 w-14 cursor-pointer rounded border border-border-strong"
             />
-            <span className="text-sm text-slate-500 dark:text-slate-400">{color}</span>
+            <span className="text-sm text-fg-subtle">{color}</span>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:col-span-2">
@@ -227,7 +227,7 @@ export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
       </fieldset>
 
       <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-50">
+        <legend className="mb-1 text-sm font-semibold text-fg">
           Preset e parâmetros padrão de análise
         </legend>
 
@@ -256,7 +256,7 @@ export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
           </p>
           {SIGNAL_NAMES.map((signal) => (
             <div key={signal} className="flex items-center gap-3">
-              <label htmlFor={`weight-${signal}`} className="w-24 shrink-0 text-sm text-slate-700 dark:text-slate-200">
+              <label htmlFor={`weight-${signal}`} className="w-24 shrink-0 text-sm text-fg-muted">
                 {SIGNAL_LABELS[signal]}
               </label>
               <input
@@ -269,7 +269,7 @@ export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
                 onChange={(e) => setWeights((prev) => ({ ...prev, [signal]: Number(e.target.value) }))}
                 className="flex-1"
               />
-              <span className="w-10 shrink-0 text-right text-sm text-slate-500 dark:text-slate-400">
+              <span className="w-10 shrink-0 text-right text-sm text-fg-subtle">
                 {(weights[signal] ?? 0).toFixed(2)}
               </span>
             </div>
@@ -304,7 +304,7 @@ export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
               onChange={(e) => setMaxDuration(e.target.value)}
               className={inputClass}
             />
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-fg-subtle">
               Shorts até 60 s; YouTube aceita até 3 min (180 s).
             </p>
           </div>
@@ -364,7 +364,7 @@ export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
       </fieldset>
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
-        <legend className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-50">
+        <legend className="mb-1 text-sm font-semibold text-fg">
           Template de publicação
         </legend>
         <div className="flex flex-col gap-1">
@@ -433,14 +433,14 @@ export function ChannelForm({ channel, onSubmit, onCancel }: ChannelFormProps) {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn btn-primary"
         >
           {submitting ? "Salvando…" : channel ? "Salvar alterações" : "Criar canal"}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="btn btn-secondary"
         >
           Cancelar
         </button>

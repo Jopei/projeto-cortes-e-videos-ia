@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 type Theme = "light" | "dark";
 
@@ -9,7 +10,8 @@ function getInitialTheme(): Theme {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
-export function ThemeToggle() {
+/** `variant="row"`: full-width labelled row (user menu, login). `variant="icon"`: 40px icon button. */
+export function ThemeToggle({ variant = "row" }: { variant?: "row" | "icon" }) {
   const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
@@ -24,15 +26,31 @@ export function ThemeToggle() {
     window.localStorage.setItem("theme", next);
   }
 
+  const icon = <Icon name={theme === "dark" ? "moon" : "sun"} />;
+
+  if (variant === "icon") {
+    return (
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-pressed={theme === "dark"}
+        aria-label={theme === "dark" ? "Tema escuro ativo. Mudar para claro" : "Tema claro ativo. Mudar para escuro"}
+        className="focus-ring flex h-10 w-10 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+      >
+        {icon}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      className="flex w-full items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+      className="focus-ring flex min-h-[40px] w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
       aria-pressed={theme === "dark"}
     >
       <span>{theme === "dark" ? "Tema escuro" : "Tema claro"}</span>
-      <span aria-hidden="true">{theme === "dark" ? "🌙" : "☀️"}</span>
+      {icon}
     </button>
   );
 }

@@ -15,8 +15,8 @@ const KIND_LABELS = { llm: "Texto (LLM)", video: "Vídeo", image: "Imagem", tts:
 function Bar({ value, max, label }: { value: number; max: number; label: string }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
-    <div role="img" aria-label={label} className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-      <div className="h-full rounded-full bg-indigo-600" style={{ width: `${pct}%` }} />
+    <div role="img" aria-label={label} className="h-2 w-full overflow-hidden rounded-full bg-border">
+      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -72,51 +72,51 @@ export function CostsTab({ series, onEditBudget }: { series: SeriesDetail; onEdi
       ) : null}
 
       <section className={`${cardClass} flex flex-col gap-3`} aria-labelledby="costs-total-heading">
-        <h2 id="costs-total-heading" className="text-base font-semibold text-slate-900 dark:text-slate-50">
+        <h2 id="costs-total-heading" className="text-base font-semibold text-fg">
           Total: {formatUsd(costs.total_usd)}
         </h2>
         <UsageBar label={limit != null ? `Limite: ${formatUsd(limit)}` : "Sem limite de orçamento"} used={costs.total_usd} quota={limit} formatValue={formatUsd} />
         {series.estimated_cost ? (
-          <p className="text-sm text-slate-700 dark:text-slate-200">
+          <p className="text-sm text-fg-muted">
             Estimado restante: {formatUsd(remaining)} (temporada: {formatUsd(series.estimated_cost.season_usd)})
           </p>
         ) : null}
         {usage && usage.monthly_ai_budget_usd != null ? (
           <UsageBar label="Orçamento mensal de IA (todas as séries)" used={usage.ai_spend_month_usd} quota={usage.monthly_ai_budget_usd} formatValue={formatUsd} />
         ) : null}
-        <p className="text-xs text-slate-500 dark:text-slate-400">Os valores são estimativas do provedor e podem diferir da fatura.</p>
+        <p className="text-xs text-fg-subtle">Os valores são estimativas do provedor e podem diferir da fatura.</p>
       </section>
 
       {costs.total_usd === 0 && costs.recent.length === 0 ? (
-        <p className="text-sm text-slate-600 dark:text-slate-300">Nenhum gasto ainda. O primeiro custo aparece quando a IA planejar a série.</p>
+        <p className="text-sm text-fg-muted">Nenhum gasto ainda. O primeiro custo aparece quando a IA planejar a série.</p>
       ) : (
         <>
           <section className={cardClass} aria-labelledby="costs-kind-heading">
-            <h2 id="costs-kind-heading" className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-50">
+            <h2 id="costs-kind-heading" className="mb-3 text-base font-semibold text-fg">
               Por tipo
             </h2>
             <ul className="flex flex-col gap-2">
               {kinds.map(({ k, v }) => (
                 <li key={k} className="grid grid-cols-[8rem_1fr_5rem] items-center gap-3 text-sm">
-                  <span className="text-slate-700 dark:text-slate-200">{KIND_LABELS[k]}</span>
+                  <span className="text-fg-muted">{KIND_LABELS[k]}</span>
                   <Bar value={v} max={kindMax} label={`${KIND_LABELS[k]}: ${formatUsd(v)}`} />
-                  <span className="text-right text-slate-900 dark:text-slate-50">{formatUsd(v)}</span>
+                  <span className="text-right text-fg">{formatUsd(v)}</span>
                 </li>
               ))}
             </ul>
           </section>
 
           <section className={cardClass} aria-labelledby="costs-ep-heading">
-            <h2 id="costs-ep-heading" className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-50">
+            <h2 id="costs-ep-heading" className="mb-3 text-base font-semibold text-fg">
               Por episódio
             </h2>
             {perEpisode.length === 0 ? (
-              <p className="text-sm text-slate-600 dark:text-slate-300">Sem custos por episódio ainda.</p>
+              <p className="text-sm text-fg-muted">Sem custos por episódio ainda.</p>
             ) : (
               <table className="w-full text-sm">
                 <caption className="sr-only">Custo por episódio</caption>
                 <thead>
-                  <tr className="text-left text-xs uppercase text-slate-500 dark:text-slate-400">
+                  <tr className="text-left text-xs uppercase text-fg-subtle">
                     <th scope="col" className="py-1 pr-3">Ep.</th>
                     <th scope="col" className="py-1 pr-3">Custo</th>
                     <th scope="col" className="py-1 pr-3">% do total</th>
@@ -126,9 +126,9 @@ export function CostsTab({ series, onEditBudget }: { series: SeriesDetail; onEdi
                 <tbody>
                   {perEpisode.map((x) => (
                     <tr key={x.episode_number}>
-                      <td className="py-1 pr-3 text-slate-900 dark:text-slate-100">{x.episode_number}</td>
-                      <td className="py-1 pr-3 text-slate-900 dark:text-slate-100">{formatUsd(x.cost_usd)}</td>
-                      <td className="py-1 pr-3 text-slate-700 dark:text-slate-200">{costs.total_usd > 0 ? Math.round((x.cost_usd / costs.total_usd) * 100) : 0}%</td>
+                      <td className="py-1 pr-3 text-fg">{x.episode_number}</td>
+                      <td className="py-1 pr-3 text-fg">{formatUsd(x.cost_usd)}</td>
+                      <td className="py-1 pr-3 text-fg-muted">{costs.total_usd > 0 ? Math.round((x.cost_usd / costs.total_usd) * 100) : 0}%</td>
                       <td className="py-1"><Bar value={x.cost_usd} max={epMax} label={`Ep. ${x.episode_number}: ${formatUsd(x.cost_usd)}`} /></td>
                     </tr>
                   ))}
@@ -138,28 +138,28 @@ export function CostsTab({ series, onEditBudget }: { series: SeriesDetail; onEdi
           </section>
 
           <section className={cardClass} aria-labelledby="costs-recent-heading">
-            <h2 id="costs-recent-heading" className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-50">
+            <h2 id="costs-recent-heading" className="mb-3 text-base font-semibold text-fg">
               Últimas {costs.recent.length} operações
             </h2>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <caption className="sr-only">Últimas operações de IA e seus custos</caption>
                 <thead>
-                  <tr className="text-left text-xs uppercase text-slate-500 dark:text-slate-400">
+                  <tr className="text-left text-xs uppercase text-fg-subtle">
                     {["Data", "Tipo", "Provedor", "Modelo", "Episódio", "Custo"].map((h) => (
                       <th key={h} scope="col" className="py-1 pr-3">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                <tbody className="divide-y divide-border">
                   {costs.recent.map((ev, i) => (
                     <tr key={ev.id ?? i}>
-                      <td className="whitespace-nowrap py-1 pr-3 text-slate-700 dark:text-slate-200">{formatDateTimeShort(ev.created_at)}</td>
-                      <td className="py-1 pr-3 text-slate-900 dark:text-slate-100">{KIND_LABELS[ev.kind] ?? ev.kind}</td>
-                      <td className="py-1 pr-3 text-slate-700 dark:text-slate-200">{ev.provider ?? "—"}</td>
-                      <td className="py-1 pr-3 text-slate-700 dark:text-slate-200">{ev.model ?? "—"}</td>
-                      <td className="py-1 pr-3 text-slate-700 dark:text-slate-200">{ev.episode_number ?? "—"}</td>
-                      <td className="whitespace-nowrap py-1 text-slate-900 dark:text-slate-100">{formatUsd(ev.cost_usd)}</td>
+                      <td className="whitespace-nowrap py-1 pr-3 text-fg-muted">{formatDateTimeShort(ev.created_at)}</td>
+                      <td className="py-1 pr-3 text-fg">{KIND_LABELS[ev.kind] ?? ev.kind}</td>
+                      <td className="py-1 pr-3 text-fg-muted">{ev.provider ?? "—"}</td>
+                      <td className="py-1 pr-3 text-fg-muted">{ev.model ?? "—"}</td>
+                      <td className="py-1 pr-3 text-fg-muted">{ev.episode_number ?? "—"}</td>
+                      <td className="whitespace-nowrap py-1 text-fg">{formatUsd(ev.cost_usd)}</td>
                     </tr>
                   ))}
                 </tbody>

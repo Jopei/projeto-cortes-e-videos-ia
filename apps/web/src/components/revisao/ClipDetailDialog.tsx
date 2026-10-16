@@ -187,15 +187,15 @@ export function ClipDetailDialog({
   return (
     <Dialog open={clipId !== null} onClose={onClose} title="Detalhe do corte" widthClassName="max-w-4xl">
       {loading ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Carregando…</p>
+        <p className="text-sm text-fg-subtle">Carregando…</p>
       ) : error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : detail ? (
         <div className="flex flex-col gap-6 lg:flex-row">
           <div className="flex flex-col gap-3 lg:w-72 lg:shrink-0">
-            <div className="relative aspect-[9/16] w-full overflow-hidden rounded-md bg-black">
+            <div className="relative aspect-[9/16] w-full overflow-hidden rounded-lg bg-black">
               {detail.synthetic_media || detail.episode_id ? (
                 <span className="pointer-events-none absolute left-2 top-2 z-10">
                   <AiBadge label="Conteúdo gerado por IA" />
@@ -212,13 +212,13 @@ export function ClipDetailDialog({
             </div>
             <div className="flex items-center justify-between">
               <ClipStatusBadge status={detail.status} />
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="text-xs text-fg-subtle">
                 Score: {detail.score != null ? detail.score.toFixed(2) : "—"}
               </span>
             </div>
 
             {detail.episode_id ? (
-              <div className="flex flex-col gap-1 rounded-md border border-indigo-300 bg-indigo-50 p-3 text-xs text-indigo-900 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-200">
+              <div className="border-info/40 bg-info-soft text-fg flex flex-col gap-1 rounded-lg border p-3 text-xs">
                 <p className="font-semibold">Série · Ep. {detail.episode_number ?? "?"}</p>
                 <p>O recorte não se aplica a episódios de série. Aprovar ou rejeitar aqui executa a ação no episódio.</p>
                 {detail.series_id ? (
@@ -233,15 +233,15 @@ export function ClipDetailDialog({
             ) : null}
 
             {detail.episode_id ? null : (
-            <fieldset className="flex flex-col gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-700">
-              <legend className="px-1 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+            <fieldset className="flex flex-col gap-2 rounded-lg border border-border p-3">
+              <legend className="px-1 text-xs font-semibold uppercase text-fg-subtle">
                 Ajuste fino (segundos)
               </legend>
               <div className="flex items-center gap-2">
-                <label htmlFor="trim-start" className="w-12 text-sm text-slate-600 dark:text-slate-300">
+                <label htmlFor="trim-start" className="w-12 text-sm text-fg-muted">
                   Início
                 </label>
-                <button type="button" onClick={() => adjustTrim("start", -TRIM_STEP)} className="rounded border border-slate-300 px-2 text-sm dark:border-slate-600">
+                <button type="button" onClick={() => adjustTrim("start", -TRIM_STEP)} className="rounded border border-border-strong px-2 text-sm">
                   −0,5
                 </button>
                 <input
@@ -250,17 +250,17 @@ export function ClipDetailDialog({
                   step="0.1"
                   value={startInput}
                   onChange={(e) => setStartInput(e.target.value)}
-                  className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900"
+                  className="field-control w-20"
                 />
-                <button type="button" onClick={() => adjustTrim("start", TRIM_STEP)} className="rounded border border-slate-300 px-2 text-sm dark:border-slate-600">
+                <button type="button" onClick={() => adjustTrim("start", TRIM_STEP)} className="rounded border border-border-strong px-2 text-sm">
                   +0,5
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <label htmlFor="trim-end" className="w-12 text-sm text-slate-600 dark:text-slate-300">
+                <label htmlFor="trim-end" className="w-12 text-sm text-fg-muted">
                   Fim
                 </label>
-                <button type="button" onClick={() => adjustTrim("end", -TRIM_STEP)} className="rounded border border-slate-300 px-2 text-sm dark:border-slate-600">
+                <button type="button" onClick={() => adjustTrim("end", -TRIM_STEP)} className="rounded border border-border-strong px-2 text-sm">
                   −0,5
                 </button>
                 <input
@@ -269,20 +269,20 @@ export function ClipDetailDialog({
                   step="0.1"
                   value={endInput}
                   onChange={(e) => setEndInput(e.target.value)}
-                  className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900"
+                  className="field-control w-20"
                 />
-                <button type="button" onClick={() => adjustTrim("end", TRIM_STEP)} className="rounded border border-slate-300 px-2 text-sm dark:border-slate-600">
+                <button type="button" onClick={() => adjustTrim("end", TRIM_STEP)} className="rounded border border-border-strong px-2 text-sm">
                   +0,5
                 </button>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-fg-subtle">
                 Duração: {formatDuration(Math.max(0, Number(endInput) - Number(startInput)))}
               </p>
               <button
                 type="button"
                 onClick={handleSaveTrim}
                 disabled={trimSaving}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn btn-primary btn-sm"
               >
                 {trimSaving ? "Salvando…" : "Salvar recorte (re-renderiza)"}
               </button>
@@ -290,7 +290,7 @@ export function ClipDetailDialog({
             )}
 
             {detail.transcript ? (
-              <details className="rounded-md border border-slate-200 p-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
+              <details className="rounded-lg border border-border p-2 text-xs text-fg-muted">
                 <summary className="cursor-pointer font-medium">Transcrição</summary>
                 <p className="mt-1 whitespace-pre-wrap">{detail.transcript}</p>
               </details>
@@ -301,7 +301,7 @@ export function ClipDetailDialog({
                 type="button"
                 onClick={() => handleDecision("approved")}
                 disabled={decisionLoading}
-                className="flex-1 rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn btn-success flex-1"
               >
                 Aprovar (A)
               </button>
@@ -309,7 +309,7 @@ export function ClipDetailDialog({
                 type="button"
                 onClick={() => handleDecision("rejected")}
                 disabled={decisionLoading}
-                className="flex-1 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn btn-danger flex-1"
               >
                 Rejeitar (R)
               </button>
@@ -317,7 +317,7 @@ export function ClipDetailDialog({
           </div>
 
           <div className="flex flex-1 flex-col gap-3">
-            <div className="flex flex-wrap gap-1 border-b border-slate-200 dark:border-slate-700">
+            <div className="flex flex-wrap gap-1 border-b border-border">
               {PLATFORM_VALUES.map((platform) => (
                 <button
                   key={platform}
@@ -326,8 +326,8 @@ export function ClipDetailDialog({
                   aria-current={activePlatform === platform ? "true" : undefined}
                   className={`rounded-t-md px-3 py-2 text-sm font-medium ${
                     activePlatform === platform
-                      ? "border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400"
-                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      ? "border-b-2 border-indigo-600 text-primary-text"
+                      : "text-fg-subtle hover:text-fg"
                   }`}
                 >
                   {PLATFORM_LABELS[platform]}
@@ -339,12 +339,12 @@ export function ClipDetailDialog({
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
-                    <label htmlFor="meta-title" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <label htmlFor="meta-title" className="text-sm font-medium text-fg-muted">
                       Título
                     </label>
                     <span
                       className={`text-xs ${
-                        titleMax && titleCount > titleMax ? "font-semibold text-red-600 dark:text-red-400" : "text-slate-400"
+                        titleMax && titleCount > titleMax ? "font-semibold text-danger" : "text-fg-subtle"
                       }`}
                     >
                       {titleCount}
@@ -361,12 +361,12 @@ export function ClipDetailDialog({
                         [activePlatform]: { ...prev[activePlatform], title: e.target.value, dirty: true },
                       }))
                     }
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+                    className="field-control w-full"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="meta-description" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <label htmlFor="meta-description" className="text-sm font-medium text-fg-muted">
                     Descrição
                   </label>
                   <textarea
@@ -379,12 +379,12 @@ export function ClipDetailDialog({
                         [activePlatform]: { ...prev[activePlatform], description: e.target.value, dirty: true },
                       }))
                     }
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+                    className="field-control w-full"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="meta-hashtags" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <label htmlFor="meta-hashtags" className="text-sm font-medium text-fg-muted">
                     {hashtagsLabel}
                   </label>
                   <input
@@ -396,7 +396,7 @@ export function ClipDetailDialog({
                         [activePlatform]: { ...prev[activePlatform], hashtags: e.target.value, dirty: true },
                       }))
                     }
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+                    className="field-control w-full"
                   />
                 </div>
 
@@ -405,7 +405,7 @@ export function ClipDetailDialog({
                     type="button"
                     onClick={() => handleSaveMetadata(activePlatform)}
                     disabled={savingPlatform === activePlatform}
-                    className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="btn btn-primary btn-sm"
                   >
                     {savingPlatform === activePlatform ? "Salvando…" : "Salvar"}
                   </button>
@@ -413,7 +413,7 @@ export function ClipDetailDialog({
                     type="button"
                     onClick={() => handleRegenerate(activePlatform)}
                     disabled={regenerating === activePlatform}
-                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    className="btn btn-secondary btn-sm"
                   >
                     {regenerating === activePlatform ? "Regenerando…" : "Regenerar esta plataforma"}
                   </button>
@@ -421,7 +421,7 @@ export function ClipDetailDialog({
                     type="button"
                     onClick={() => handleRegenerate("all")}
                     disabled={regenerating === "all"}
-                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    className="btn btn-secondary btn-sm"
                   >
                     {regenerating === "all" ? "Regenerando…" : "Regenerar todas"}
                   </button>

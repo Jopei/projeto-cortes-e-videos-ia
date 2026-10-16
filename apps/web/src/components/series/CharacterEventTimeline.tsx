@@ -31,9 +31,9 @@ export function CharacterEventTimeline({ characters, onOpenEpisode }: { characte
     <div className="flex flex-col gap-3">
       <p className={hintClass}>Mortes e mudanças de status propostas pela IA só entram em vigor quando você aprova o vídeo do episódio.</p>
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+        <label className="flex items-center gap-2 text-sm text-fg-muted">
           Personagem
-          <select value={who} onChange={(e) => setWho(e.target.value)} className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900">
+          <select value={who} onChange={(e) => setWho(e.target.value)} className="field-control">
             <option value="">Todos</option>
             {characters.map((c) => (
               <option key={c.id} value={c.id}>
@@ -42,28 +42,28 @@ export function CharacterEventTimeline({ characters, onOpenEpisode }: { characte
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+        <label className="flex items-center gap-2 text-sm text-fg-muted">
           <input type="checkbox" checked={showDiscarded} onChange={(e) => setShowDiscarded(e.target.checked)} className="h-4 w-4" />
           Mostrar descartados
         </label>
       </div>
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-600 dark:text-slate-300">Nenhum evento ainda.</p>
+        <p className="text-sm text-fg-muted">Nenhum evento ainda.</p>
       ) : (
         <ol className="flex flex-col gap-2">
           {rows.map((e) => (
             <li
               key={e.id}
-              className={`flex flex-wrap items-start justify-between gap-2 rounded-md border p-2 text-sm ${
-                e.state === "proposed" ? "border-dashed border-amber-400" : e.state === "discarded" ? "border-slate-200 opacity-70 dark:border-slate-700" : "border-slate-300 dark:border-slate-600"
+              className={`flex flex-wrap items-start justify-between gap-2 rounded-lg border p-2 text-sm ${
+                e.state === "proposed" ? "border-dashed border-amber-400" : e.state === "discarded" ? "border-border opacity-70" : "border-border-strong"
               }`}
             >
               <div className="min-w-0">
-                <p className={`text-slate-900 dark:text-slate-100 ${e.state === "discarded" ? "line-through" : ""}`}>
+                <p className={`text-fg ${e.state === "discarded" ? "line-through" : ""}`}>
                   <span className="font-semibold">Ep. {e.episode_number}</span>{" "}
                   <span aria-hidden="true">{e.to_status ? CHARACTER_STATUS_SYMBOLS[e.to_status] : ""}</span> {describe(e)}
                 </p>
-                {e.description ? <p className="text-xs text-slate-600 dark:text-slate-300">&ldquo;{e.description}&rdquo;</p> : null}
+                {e.description ? <p className="text-xs text-fg-muted">&ldquo;{e.description}&rdquo;</p> : null}
                 <button type="button" onClick={() => onOpenEpisode(e.episode_number)} className={`${linkClass} text-xs`}>
                   Ver episódio
                 </button>

@@ -96,7 +96,7 @@ export function SourcesManager() {
           <button
             type="button"
             onClick={() => setFormMode("create")}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+            className="btn btn-primary"
           >
             + Nova fonte
           </button>
@@ -112,29 +112,68 @@ export function SourcesManager() {
       )}
 
       {notice ? (
-        <div className="rounded-md border border-emerald-400 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200">
+        <div className="border-success/40 bg-success-soft text-fg rounded-lg border p-3 text-sm">
           {notice}
         </div>
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Carregando fontes…</p>
+        <p className="text-sm text-fg-subtle">Carregando fontes…</p>
       ) : loadError ? (
         <div
           role="alert"
-          className="rounded-md border border-red-400 bg-red-50 p-3 text-sm text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200"
+          className="border-danger/40 bg-danger-soft text-fg rounded-lg border p-3 text-sm"
         >
           {loadError}
         </div>
       ) : sources.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-fg-subtle">
           Nenhuma fonte cadastrada ainda.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+        <>
+        <ul className="flex flex-col gap-3 md:hidden" aria-label="Fontes e licenças">
+          {sources.map((source) => (
+            <li key={source.id} className="rounded-xl border border-border bg-surface p-4 shadow-card dark:shadow-none">
+              <p className="font-medium text-fg">{source.title}</p>
+              <p className="text-sm text-fg-muted">{source.work_name}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <LicenseTypeBadge licenseType={source.license_type} />
+                <SourceWarningBadges source={source} />
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-x-3 text-sm">
+                <dt className="text-fg-subtle">Validade</dt>
+                <dd className="text-fg-muted tabular-nums">
+                  {formatDate(source.valid_from)} – {formatDate(source.valid_until)}
+                </dd>
+                {showOwner ? (
+                  <>
+                    <dt className="text-fg-subtle">Dono</dt>
+                    <dd className="text-fg-muted">{ownerLabel(source.owner_id)}</dd>
+                  </>
+                ) : null}
+              </dl>
+              <div className="mt-3 flex gap-2">
+                <button type="button" onClick={() => setFormMode(source)} className="btn btn-secondary btn-sm flex-1">
+                  Editar<span className="sr-only"> {source.title}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(source)}
+                  disabled={deletingId === source.id}
+                  className="btn btn-danger-outline btn-sm flex-1"
+                >
+                  {deletingId === source.id ? "Excluindo…" : "Excluir"}
+                  <span className="sr-only"> {source.title}</span>
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none md:block">
+          <table className="min-w-full divide-y divide-border text-sm">
             <caption className="sr-only">Lista de fontes e licenças cadastradas</caption>
-            <thead className="bg-slate-50 dark:bg-slate-900">
+            <thead className="bg-surface-2">
               <tr>
                 <th scope="col" className={thClass}>
                   Título
@@ -158,7 +197,7 @@ export function SourcesManager() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+            <tbody className="divide-y bg-surface divide-border">
               {sources.map((source) => (
                 <tr key={source.id}>
                   <td className={tdClass}>{source.title}</td>
@@ -173,11 +212,11 @@ export function SourcesManager() {
                     {formatDate(source.valid_from)} – {formatDate(source.valid_until)}
                   </td>
                   {showOwner ? <td className={tdClass}>{ownerLabel(source.owner_id)}</td> : null}
-                  <td className={`${tdClass} space-x-3 whitespace-nowrap`}>
+                  <td className={`${tdClass} whitespace-nowrap`}>
                     <button
                       type="button"
                       onClick={() => setFormMode(source)}
-                      className="font-medium text-indigo-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-indigo-400"
+                      className="btn btn-ghost btn-sm"
                     >
                       Editar
                       <span className="sr-only"> {source.title}</span>
@@ -186,7 +225,7 @@ export function SourcesManager() {
                       type="button"
                       onClick={() => handleDelete(source)}
                       disabled={deletingId === source.id}
-                      className="font-medium text-red-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400"
+                      className="btn btn-danger-outline btn-sm"
                     >
                       {deletingId === source.id ? "Excluindo…" : "Excluir"}
                       <span className="sr-only"> {source.title}</span>
@@ -197,11 +236,12 @@ export function SourcesManager() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
 }
 
 const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300";
-const tdClass = "px-4 py-3 text-slate-800 dark:text-slate-100";
+  "px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-fg-subtle";
+const tdClass = "px-4 py-3 text-fg";

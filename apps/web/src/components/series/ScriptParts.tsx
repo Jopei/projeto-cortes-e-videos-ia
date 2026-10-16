@@ -21,7 +21,7 @@ const TARGET_WORDS: [number, number] = [55, 85];
 function rangeTone(value: number, [min, max]: [number, number]): string {
   if (value >= min && value <= max) return "text-emerald-700 dark:text-emerald-300";
   if (value >= min - 3 && value <= max + 5) return "text-amber-700 dark:text-amber-300";
-  return "text-red-700 dark:text-red-300";
+  return "text-danger";
 }
 
 function rangeText(value: number, [min, max]: [number, number]): string {
@@ -50,7 +50,7 @@ function CharacterChips({ keys, characters }: { keys: string[]; characters: Char
       {keys.map((k) => {
         const c = characters.find((x) => x.key === k);
         return (
-          <li key={k} className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+          <li key={k} className="rounded-full border border-border-strong bg-surface-2 px-2 py-0.5 text-xs text-fg-muted">
             {c?.status === "dead" ? <span aria-label="morto">{CHARACTER_STATUS_SYMBOLS.dead} </span> : null}
             {c?.name ?? k}
           </li>
@@ -66,25 +66,25 @@ export const SceneCard = forwardRef<HTMLLIElement, { scene: Scene; position: num
 ) {
   const location = bible?.world.locations.find((l) => l.key === scene.location_key);
   return (
-    <li ref={ref} tabIndex={-1} className="flex flex-col gap-2 rounded-md border border-slate-200 p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700">
+    <li ref={ref} tabIndex={-1} className="flex flex-col gap-2 rounded-lg border border-border p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold text-slate-900 dark:text-slate-50">Cena {position + 1}</span>
-        <span className="text-xs text-slate-600 dark:text-slate-300">{Number(scene.duration_s).toFixed(1).replace(".", ",")} s</span>
+        <span className="font-semibold text-fg">Cena {position + 1}</span>
+        <span className="text-xs text-fg-muted">{Number(scene.duration_s).toFixed(1).replace(".", ",")} s</span>
         <Badge variant={scene.visual_mode === "video" ? "info" : "neutral"}>
           <span aria-hidden="true">{scene.visual_mode === "video" ? "▶" : "▣"}</span>
           {scene.visual_mode === "video" ? "Vídeo" : "Imagem"}
         </Badge>
         {scene.is_flashback ? <Badge variant="warning">Flashback</Badge> : null}
-        <span className="text-xs text-slate-500 dark:text-slate-400">{countWords(scene.narration)} palavras</span>
+        <span className="text-xs text-fg-subtle">{countWords(scene.narration)} palavras</span>
       </div>
       <CharacterChips keys={scene.characters_on_screen} characters={characters} />
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-fg-subtle">
         {[location?.name ? `Local: ${location.name}` : null, scene.camera ? `Câmera: ${scene.camera}` : null, scene.mood ? `Clima: ${scene.mood}` : null].filter(Boolean).join(" · ")}
       </p>
-      <p className="text-slate-900 dark:text-slate-100">
+      <p className="text-fg">
         <span className="font-medium">Narração:</span> {scene.narration}
       </p>
-      <p className="text-slate-700 dark:text-slate-200">
+      <p className="text-fg-muted">
         <span className="font-medium">Visual:</span> {scene.visual_prompt}
       </p>
     </li>
@@ -162,9 +162,9 @@ export function ScriptEditor({
           const id = `scene-${i}`;
           const impact = s.visual_mode === "video" ? videoImpact(s) : null;
           return (
-            <li key={i} data-scene-position={i} tabIndex={-1} className="flex flex-col gap-3 rounded-md border border-slate-300 p-3 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600">
+            <li key={i} data-scene-position={i} tabIndex={-1} className="flex flex-col gap-3 rounded-lg border border-border-strong p-3 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">Cena {i + 1}</span>
+                <span className="text-sm font-semibold text-fg">Cena {i + 1}</span>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className={secondaryButton} aria-label={`Subir cena ${i + 1}`}>
                     Subir
@@ -180,7 +180,7 @@ export function ScriptEditor({
 
               <div className="flex flex-col gap-1">
                 <label htmlFor={`${id}-narration`} className={labelClass}>
-                  Narração <span className="font-normal text-slate-500">({countWords(s.narration)} palavras)</span>
+                  Narração <span className="font-normal text-fg-subtle">({countWords(s.narration)} palavras)</span>
                 </label>
                 <textarea id={`${id}-narration`} rows={3} value={s.narration} onChange={(e) => setScene(i, { narration: e.target.value })} className={inputClass} />
               </div>
@@ -190,7 +190,7 @@ export function ScriptEditor({
                   <label htmlFor={`${id}-visual`} className={labelClass}>
                     Prompt visual (em inglês)
                   </label>
-                  <span className="text-xs text-slate-500">{s.visual_prompt.length}/600</span>
+                  <span className="text-xs text-fg-subtle">{s.visual_prompt.length}/600</span>
                 </div>
                 <textarea id={`${id}-visual`} rows={3} maxLength={600} value={s.visual_prompt} onChange={(e) => setScene(i, { visual_prompt: e.target.value })} className={inputClass} aria-describedby={`${id}-visual-hint`} />
                 <p id={`${id}-visual-hint`} className={hintClass}>
@@ -203,7 +203,7 @@ export function ScriptEditor({
                   <legend className={labelClass}>Modo visual</legend>
                   <div className="flex gap-4">
                     {(["video", "image"] as const).map((m) => (
-                      <label key={m} className="flex items-center gap-1.5 text-sm text-slate-800 dark:text-slate-100">
+                      <label key={m} className="flex items-center gap-1.5 text-sm text-fg">
                         <input type="radio" name={`${id}-mode`} checked={s.visual_mode === m} onChange={() => setScene(i, { visual_mode: m })} className="h-4 w-4" />
                         {m === "video" ? "Vídeo" : "Imagem"}
                       </label>
@@ -252,7 +252,7 @@ export function ScriptEditor({
                   </label>
                   <input id={`${id}-mood`} maxLength={40} value={s.mood} onChange={(e) => setScene(i, { mood: e.target.value })} className={inputClass} />
                 </div>
-                <label className="flex items-center gap-2 self-end text-sm text-slate-800 dark:text-slate-100">
+                <label className="flex items-center gap-2 self-end text-sm text-fg">
                   <input type="checkbox" checked={s.is_flashback} onChange={(e) => setScene(i, { is_flashback: e.target.checked })} className="h-4 w-4" />
                   Flashback
                 </label>
@@ -262,7 +262,7 @@ export function ScriptEditor({
                 <legend className={labelClass}>Personagens em cena</legend>
                 <div className="flex flex-wrap gap-3">
                   {characters.map((c) => (
-                    <label key={c.key} className="flex items-center gap-1.5 text-sm text-slate-800 dark:text-slate-100">
+                    <label key={c.key} className="flex items-center gap-1.5 text-sm text-fg">
                       <input
                         type="checkbox"
                         checked={s.characters_on_screen.includes(c.key)}

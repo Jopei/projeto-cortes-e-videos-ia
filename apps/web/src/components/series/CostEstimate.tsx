@@ -106,7 +106,7 @@ export function StrategyStep({
   return (
     <div className="flex flex-col gap-5">
       <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">Estilo visual</legend>
+        <legend className="mb-2 text-sm font-medium text-fg-muted">Estilo visual</legend>
         <div role="radiogroup" aria-label="Estilo visual" className="grid gap-3 md:grid-cols-3">
           {STRATEGIES.map((s) => {
             const checked = state.strategy === s.value;
@@ -116,8 +116,8 @@ export function StrategyStep({
                 key={s.value}
                 className={`flex cursor-pointer flex-col gap-1 rounded-lg border p-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-500 ${
                   checked
-                    ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500 dark:bg-indigo-950/40"
-                    : "border-slate-300 bg-white hover:border-indigo-300 dark:border-slate-600 dark:bg-slate-950"
+                    ? "border-info/40 bg-info-soft text-fg ring-2 ring-indigo-500"
+                    : "border-border-strong bg-surface hover:border-indigo-300"
                 }`}
               >
                 <span className="flex items-center gap-2">
@@ -129,30 +129,30 @@ export function StrategyStep({
                     onChange={() => onChange({ strategy: s.value })}
                     className="h-4 w-4"
                   />
-                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">{s.title}</span>
+                  <span className="text-sm font-semibold text-fg">{s.title}</span>
                 </span>
-                <span className="text-xs text-slate-600 dark:text-slate-300">{s.subtitle}</span>
-                <span className="mt-1 text-sm text-slate-900 dark:text-slate-50" aria-live="polite">
+                <span className="text-xs text-fg-muted">{s.subtitle}</span>
+                <span className="mt-1 text-sm text-fg" aria-live="polite">
                   {est.loading && !est.data ? (
                     "Calculando…"
                   ) : est.data ? (
                     <>
                       <span className="block">~{formatUsd(est.data.per_episode_usd)} / episódio</span>
-                      <span className="block text-xs text-slate-600 dark:text-slate-300">
+                      <span className="block text-xs text-fg-muted">
                         ~{formatUsd(est.data.season_usd)} / temporada
                       </span>
                     </>
                   ) : (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">{est.error ?? "—"}</span>
+                    <span className="text-xs text-fg-subtle">{est.error ?? "—"}</span>
                   )}
                 </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">{s.description}</span>
+                <span className="text-xs text-fg-subtle">{s.description}</span>
               </label>
             );
           })}
         </div>
         {error ? (
-          <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+          <p role="alert" className="text-xs text-danger">
             {error}
           </p>
         ) : null}
@@ -183,9 +183,9 @@ export function StrategyStep({
         </Field>
       ) : null}
 
-      <details className="rounded-md border border-slate-200 p-3 text-sm dark:border-slate-700" open>
-        <summary className="cursor-pointer font-medium text-slate-800 dark:text-slate-100">Como calculamos</summary>
-        <div className="mt-2 flex flex-col gap-2 text-xs text-slate-600 dark:text-slate-300">
+      <details className="rounded-lg border border-border p-3 text-sm" open>
+        <summary className="cursor-pointer font-medium text-fg">Como calculamos</summary>
+        <div className="mt-2 flex flex-col gap-2 text-xs text-fg-muted">
           {current.data ? (
             <>
               <p>

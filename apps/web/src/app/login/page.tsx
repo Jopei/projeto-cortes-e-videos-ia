@@ -9,13 +9,13 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+      <div className="absolute right-3 top-3">
+        <ThemeToggle variant="icon" />
+      </div>
       <Suspense fallback={null}>
         <LoginForm />
       </Suspense>
-      <div className="w-full max-w-sm">
-        <ThemeToggle />
-      </div>
     </div>
   );
 }

@@ -25,8 +25,8 @@ import { UsageBar } from "@/components/ui/UsageBar";
 import { UserFormDialog } from "@/components/admin/UserFormDialog";
 
 const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300";
-const tdClass = "px-4 py-3 align-top text-slate-800 dark:text-slate-100";
+  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted";
+const tdClass = "px-4 py-3 align-top text-fg";
 
 export function AdminUsersManager() {
   const { users, loadingUsers, reloadUsers } = useAdminView();
@@ -82,7 +82,7 @@ export function AdminUsersManager() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+          className="btn btn-primary"
         >
           + Novo usuário
         </button>
@@ -93,10 +93,10 @@ export function AdminUsersManager() {
       ) : users.length === 0 ? (
         <EmptyState title="Nenhum usuário cadastrado" description="Crie o primeiro usuário do sistema." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+        <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
+          <table className="min-w-full divide-y divide-border text-sm">
             <caption className="sr-only">Usuários do sistema</caption>
-            <thead className="bg-slate-50 dark:bg-slate-900">
+            <thead className="bg-surface-2">
               <tr>
                 <th scope="col" className={thClass}>Usuário</th>
                 <th scope="col" className={thClass}>Status</th>
@@ -109,14 +109,14 @@ export function AdminUsersManager() {
                 <th scope="col" className={thClass}>Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+            <tbody className="divide-y bg-surface divide-border">
               {users.map((u) => (
                 <tr key={u.id}>
                   <td className={tdClass}>
                     <div className="flex flex-col gap-0.5">
                       <span className="font-medium">{displayNameOf(u)}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">{u.username}</span>
-                      {u.email ? <span className="text-xs text-slate-500 dark:text-slate-400">{u.email}</span> : null}
+                      <span className="text-xs text-fg-subtle">{u.username}</span>
+                      {u.email ? <span className="text-xs text-fg-subtle">{u.email}</span> : null}
                     </div>
                   </td>
                   <td className={tdClass}>
@@ -128,7 +128,7 @@ export function AdminUsersManager() {
                   </td>
                   <td className={`${tdClass} min-w-[10rem]`}>
                     {u.is_admin ? (
-                      <span className="text-xs text-slate-500 dark:text-slate-400">sem limite</span>
+                      <span className="text-xs text-fg-subtle">sem limite</span>
                     ) : (
                       <UsageBar
                         label=""
@@ -158,14 +158,14 @@ export function AdminUsersManager() {
                     <button
                       type="button"
                       onClick={() => setEditTarget(u)}
-                      className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                      className="font-medium text-primary-text hover:underline"
                     >
                       Editar
                     </button>
                     <button
                       type="button"
                       onClick={() => setResetTarget(u)}
-                      className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                      className="font-medium text-primary-text hover:underline"
                     >
                       Redefinir senha
                     </button>
@@ -175,7 +175,7 @@ export function AdminUsersManager() {
                         setDeleteError(null);
                         setDeleteTarget(u);
                       }}
-                      className="font-medium text-red-600 hover:underline dark:text-red-400"
+                      className="font-medium text-danger hover:underline"
                     >
                       Excluir
                     </button>
@@ -198,14 +198,14 @@ export function AdminUsersManager() {
       <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)} title="Excluir usuário">
         {deleteTarget ? (
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-slate-700 dark:text-slate-200">
+            <p className="text-sm text-fg-muted">
               Excluir <span className="font-semibold">{displayNameOf(deleteTarget)}</span>? Se o usuário já tiver
               dados (fontes, uploads, canais, cortes, contas ou publicações), ele será apenas{" "}
               <span className="font-semibold">desativado</span> em vez de excluído — os dados nunca são apagados
               silenciosamente.
             </p>
             {deleteError ? (
-              <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+              <p role="alert" className="text-sm text-danger">
                 {deleteError}
               </p>
             ) : null}
@@ -214,14 +214,14 @@ export function AdminUsersManager() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn btn-danger"
               >
                 {deleting ? "Processando…" : "Confirmar"}
               </button>
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="btn btn-secondary"
               >
                 Cancelar
               </button>
@@ -284,11 +284,11 @@ function ResetPasswordDialog({ target, onClose }: { target: AdminUserRead | null
     >
       {target ? (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-700 dark:text-slate-200">
+          <p className="text-sm text-fg-muted">
             Uma nova senha temporária foi gerada. O usuário precisará trocá-la no próximo login.
           </p>
           {error ? (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           ) : null}
@@ -296,19 +296,19 @@ function ResetPasswordDialog({ target, onClose }: { target: AdminUserRead | null
             <input
               readOnly
               value={password}
-              className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+              className="field-control w-full font-mono"
             />
             <button
               type="button"
               onClick={() => setPassword(generateStrongPassword())}
-              className="shrink-0 rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="btn btn-secondary btn-sm shrink-0"
             >
               Gerar outra
             </button>
             <button
               type="button"
               onClick={handleCopy}
-              className="shrink-0 rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="btn btn-secondary btn-sm shrink-0"
             >
               Copiar
             </button>
@@ -318,7 +318,7 @@ function ResetPasswordDialog({ target, onClose }: { target: AdminUserRead | null
               type="button"
               onClick={handleConfirm}
               disabled={submitting}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn btn-primary"
             >
               {submitting ? "Salvando…" : "Confirmar redefinição"}
             </button>
@@ -329,7 +329,7 @@ function ResetPasswordDialog({ target, onClose }: { target: AdminUserRead | null
                 setError(null);
                 onClose();
               }}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="btn btn-secondary"
             >
               Cancelar
             </button>

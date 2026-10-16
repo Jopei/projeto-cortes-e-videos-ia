@@ -39,31 +39,31 @@ export function AccountManager() {
       {forcedChange ? (
         <div
           role="alert"
-          className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200"
+          className="border-warning/40 bg-warning-soft text-fg rounded-lg border p-3 text-sm"
         >
           Por segurança, você precisa trocar sua senha antes de continuar usando o painel.
         </div>
       ) : null}
 
-      <section className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">Meus dados</h2>
+      <section className="flex flex-col gap-2 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4">
+        <h2 className="text-base font-semibold text-fg">Meus dados</h2>
         {user ? (
           <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-xs uppercase text-slate-400 dark:text-slate-500">Usuário</dt>
-              <dd className="text-slate-800 dark:text-slate-100">{user.username}</dd>
+              <dt className="text-xs uppercase text-fg-subtle">Usuário</dt>
+              <dd className="text-fg">{user.username}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase text-slate-400 dark:text-slate-500">Nome</dt>
-              <dd className="text-slate-800 dark:text-slate-100">{user.display_name || "—"}</dd>
+              <dt className="text-xs uppercase text-fg-subtle">Nome</dt>
+              <dd className="text-fg">{user.display_name || "—"}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase text-slate-400 dark:text-slate-500">E-mail</dt>
-              <dd className="text-slate-800 dark:text-slate-100">{user.email || "—"}</dd>
+              <dt className="text-xs uppercase text-fg-subtle">E-mail</dt>
+              <dd className="text-fg">{user.email || "—"}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase text-slate-400 dark:text-slate-500">Perfil</dt>
-              <dd className="text-slate-800 dark:text-slate-100">{user.is_admin ? "Administrador" : "Usuário"}</dd>
+              <dt className="text-xs uppercase text-fg-subtle">Perfil</dt>
+              <dd className="text-fg">{user.is_admin ? "Administrador" : "Usuário"}</dd>
             </div>
           </dl>
         ) : (
@@ -71,14 +71,14 @@ export function AccountManager() {
         )}
       </section>
 
-      <section className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">Uso e cotas</h2>
+      <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4">
+        <h2 className="text-base font-semibold text-fg">Uso e cotas</h2>
         {user?.is_admin ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-fg-subtle">
             Administradores não têm cotas — uso ilimitado de armazenamento, análises e canais.
           </p>
         ) : usageError ? (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="text-sm text-danger">
             {usageError}
           </p>
         ) : usage ? (
@@ -119,8 +119,8 @@ export function AccountManager() {
         )}
       </section>
 
-      <section className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">Trocar senha</h2>
+      <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4">
+        <h2 className="text-base font-semibold text-fg">Trocar senha</h2>
         <ChangePasswordForm onChanged={refresh} />
       </section>
     </div>

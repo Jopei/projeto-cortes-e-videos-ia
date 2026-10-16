@@ -240,7 +240,7 @@ export function AccountsManager() {
   if (loading) return <SkeletonList rows={5} />;
   if (error) {
     return (
-      <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+      <p role="alert" className="text-sm text-danger">
         {error}
       </p>
     );
@@ -249,15 +249,15 @@ export function AccountsManager() {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">Plataformas</h2>
+        <h2 className="text-base font-semibold text-fg">Plataformas</h2>
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {platforms.map((platform) => (
             <li
               key={platform.id}
-              className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950"
+              className="flex flex-col gap-2 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 font-medium text-slate-900 dark:text-slate-50">
+                <span className="flex items-center gap-1.5 font-medium text-fg">
                   {platform.name}
                   <PlatformHelpPopover
                     help={INTEGRATION_HELP[platform.id]}
@@ -275,14 +275,14 @@ export function AccountsManager() {
                     {platform.configured ? "OAuth configurado" : "OAuth não configurado"}
                   </span>
                 ) : (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-fg-muted">
                     Somente manual
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{platform.notes}</p>
+              <p className="text-xs text-fg-subtle">{platform.notes}</p>
               {platform.supports_oauth && !platform.configured && !isAdmin ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-fg-subtle">
                   Peça ao administrador para configurar.
                 </p>
               ) : null}
@@ -291,7 +291,7 @@ export function AccountsManager() {
                   <button
                     type="button"
                     onClick={() => handleConnect(platform)}
-                    className="text-indigo-600 hover:underline dark:text-indigo-400"
+                    className="text-primary-text hover:underline"
                   >
                     Conectar
                   </button>
@@ -299,7 +299,7 @@ export function AccountsManager() {
                 <button
                   type="button"
                   onClick={() => setAddManualPlatform(platform.id)}
-                  className="text-indigo-600 hover:underline dark:text-indigo-400"
+                  className="text-primary-text hover:underline"
                 >
                   Adicionar conta manual
                 </button>
@@ -308,7 +308,7 @@ export function AccountsManager() {
                     type="button"
                     onClick={() => setConfigureTarget(platform.id)}
                     disabled={loadingIntegrations || !integrations[platform.id]}
-                    className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
+                    className="text-primary-text hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Configurar chaves
                   </button>
@@ -320,10 +320,10 @@ export function AccountsManager() {
           {AI_INTEGRATION_CARDS.map((card) => (
             <li
               key={card.id}
-              className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950"
+              className="flex flex-col gap-2 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 font-medium text-slate-900 dark:text-slate-50">
+                <span className="flex items-center gap-1.5 font-medium text-fg">
                   {card.title}
                   <PlatformHelpPopover help={INTEGRATION_HELP[card.id]} redirectUri={null} />
                 </span>
@@ -338,19 +338,19 @@ export function AccountsManager() {
                     {integrations[card.id]?.configured ? "Configurado" : "Não configurado"}
                   </span>
                 ) : (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-fg-muted">
                     Gerenciado pelo administrador
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{card.description}</p>
+              <p className="text-xs text-fg-subtle">{card.description}</p>
               {isAdmin ? (
                 <div className="mt-auto flex gap-3 pt-2 text-sm font-medium">
                   <button
                     type="button"
                     onClick={() => setConfigureTarget(card.id)}
                     disabled={loadingIntegrations || !integrations[card.id]}
-                    className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
+                    className="text-primary-text hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Configurar chaves
                   </button>
@@ -363,9 +363,9 @@ export function AccountsManager() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">Contas cadastradas</h2>
+          <h2 className="text-base font-semibold text-fg">Contas cadastradas</h2>
           {channelFilter ? (
-            <span className="flex items-center gap-1 rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs text-indigo-800 dark:border-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-200">
+            <span className="border-info/40 bg-info-soft text-fg flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
               Canal: {channelName(channels, channelFilter)}
               <button
                 type="button"
@@ -384,10 +384,10 @@ export function AccountsManager() {
             description="Conecte uma conta OAuth ou adicione uma conta manual (ex.: Bilibili) para publicar cortes."
           />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+          <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
+            <table className="min-w-full divide-y divide-border text-sm">
               <caption className="sr-only">Contas de plataformas cadastradas</caption>
-              <thead className="bg-slate-50 dark:bg-slate-900">
+              <thead className="bg-surface-2">
                 <tr>
                   <th scope="col" className={thClass}>Conta</th>
                   <th scope="col" className={thClass}>Plataforma</th>
@@ -397,7 +397,7 @@ export function AccountsManager() {
                   <th scope="col" className={thClass}>Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+              <tbody className="divide-y bg-surface divide-border">
                 {accounts.map((account) => (
                   <tr key={account.id}>
                     <td className={tdClass}>{account.display_name}</td>
@@ -420,7 +420,7 @@ export function AccountsManager() {
                       <button
                         type="button"
                         onClick={() => setEditTarget(account)}
-                        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                        className="font-medium text-primary-text hover:underline"
                       >
                         Editar
                       </button>
@@ -439,7 +439,7 @@ export function AccountsManager() {
                       <button
                         type="button"
                         onClick={() => setDeleteTarget(account)}
-                        className="font-medium text-red-600 hover:underline dark:text-red-400"
+                        className="font-medium text-danger hover:underline"
                       >
                         Excluir
                       </button>
@@ -459,12 +459,12 @@ export function AccountsManager() {
       >
         <form onSubmit={handleCreateManual} className="flex flex-col gap-4">
           {manualError ? (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="text-sm text-danger">
               {manualError}
             </p>
           ) : null}
           <div className="flex flex-col gap-1">
-            <label htmlFor="manual-display-name" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label htmlFor="manual-display-name" className="text-sm font-medium text-fg-muted">
               Nome de exibição
             </label>
             <input
@@ -472,18 +472,18 @@ export function AccountsManager() {
               required
               value={manualDisplayName}
               onChange={(e) => setManualDisplayName(e.target.value)}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+              className="field-control w-full"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="manual-channel" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label htmlFor="manual-channel" className="text-sm font-medium text-fg-muted">
               Canal (opcional)
             </label>
             <select
               id="manual-channel"
               value={manualChannelId}
               onChange={(e) => setManualChannelId(e.target.value)}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+              className="field-control w-full"
             >
               <option value="">Nenhum</option>
               {channels.map((c) => (
@@ -497,14 +497,14 @@ export function AccountsManager() {
             <button
               type="submit"
               disabled={creatingManual}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn btn-primary"
             >
               {creatingManual ? "Criando…" : "Criar conta"}
             </button>
             <button
               type="button"
               onClick={() => setAddManualPlatform(null)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="btn btn-secondary"
             >
               Cancelar
             </button>
@@ -531,7 +531,7 @@ export function AccountsManager() {
       <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)} title="Excluir conta">
         {deleteTarget ? (
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-slate-700 dark:text-slate-200">
+            <p className="text-sm text-fg-muted">
               Excluir a conta <span className="font-semibold">{deleteTarget.display_name}</span>? Esta
               ação não pode ser desfeita.
             </p>
@@ -540,14 +540,14 @@ export function AccountsManager() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn btn-danger"
               >
                 {deleting ? "Excluindo…" : "Excluir"}
               </button>
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="btn btn-secondary"
               >
                 Cancelar
               </button>
@@ -569,5 +569,5 @@ export function AccountsManager() {
 }
 
 const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300";
-const tdClass = "px-4 py-3 text-slate-800 dark:text-slate-100";
+  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted";
+const tdClass = "px-4 py-3 text-fg";

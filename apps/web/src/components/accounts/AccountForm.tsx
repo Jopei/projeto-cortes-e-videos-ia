@@ -7,8 +7,8 @@ import { WEEKDAY_LABELS } from "@/lib/accounts";
 import type { Channel, TemplateParams } from "@/lib/channels";
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50";
-const labelClass = "text-sm font-medium text-slate-700 dark:text-slate-200";
+  "field-control w-full";
+const labelClass = "text-sm font-medium text-fg-muted";
 
 function PostingWindowsEditor({
   windows,
@@ -35,7 +35,7 @@ function PostingWindowsEditor({
   return (
     <div className="flex flex-col gap-3">
       {windows.map((w, index) => (
-        <div key={index} className="flex flex-col gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+        <div key={index} className="flex flex-col gap-2 rounded-lg border border-border p-3">
           <div className="flex flex-wrap gap-1.5">
             {WEEKDAY_LABELS.map((label, day) => (
               <button
@@ -45,8 +45,8 @@ function PostingWindowsEditor({
                 aria-pressed={w.days.includes(day)}
                 className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
                   w.days.includes(day)
-                    ? "border-indigo-600 bg-indigo-600 text-white"
-                    : "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300"
+                    ? "border-primary bg-primary text-white"
+                    : "border-border-strong text-fg-muted"
                 }`}
               >
                 {label}
@@ -54,28 +54,28 @@ function PostingWindowsEditor({
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-xs text-slate-500 dark:text-slate-400">
+            <label className="text-xs text-fg-subtle">
               Das
               <input
                 type="time"
                 value={w.start}
                 onChange={(e) => updateWindow(index, { start: e.target.value })}
-                className="ml-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900"
+                className="field-control ml-1"
               />
             </label>
-            <label className="text-xs text-slate-500 dark:text-slate-400">
+            <label className="text-xs text-fg-subtle">
               às
               <input
                 type="time"
                 value={w.end}
                 onChange={(e) => updateWindow(index, { end: e.target.value })}
-                className="ml-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900"
+                className="field-control ml-1"
               />
             </label>
             <button
               type="button"
               onClick={() => removeWindow(index)}
-              className="ml-auto text-xs font-medium text-red-600 hover:underline dark:text-red-400"
+              className="ml-auto text-xs font-medium text-danger hover:underline"
             >
               Remover janela
             </button>
@@ -85,7 +85,7 @@ function PostingWindowsEditor({
       <button
         type="button"
         onClick={addWindow}
-        className="self-start rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+        className="btn btn-secondary btn-sm self-start"
       >
         + Adicionar janela de postagem
       </button>
@@ -167,7 +167,7 @@ export function AccountForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error ? (
-        <p role="alert" className="rounded-md border border-red-400 bg-red-50 p-2 text-sm text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200">
+        <p role="alert" className="border-danger/40 bg-danger-soft text-fg rounded-lg border p-2 text-sm">
           {error}
         </p>
       ) : null}
@@ -314,14 +314,14 @@ export function AccountForm({
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn btn-primary"
         >
           {submitting ? "Salvando…" : "Salvar"}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="btn btn-secondary"
         >
           Cancelar
         </button>

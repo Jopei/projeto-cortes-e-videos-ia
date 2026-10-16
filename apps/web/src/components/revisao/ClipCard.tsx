@@ -8,7 +8,7 @@ import { AiBadge } from "@/components/series/badges";
 import { Badge } from "@/components/ui/Badge";
 
 function SignalBars({ signals }: { signals: Record<string, number> | null }) {
-  if (!signals) return <p className="text-xs text-slate-400 dark:text-slate-600">Sem sinais.</p>;
+  if (!signals) return <p className="text-xs text-fg-subtle">Sem sinais.</p>;
   return (
     <div className="flex h-6 items-end gap-1" aria-hidden="true">
       {SIGNAL_NAMES.map((name) => {
@@ -47,14 +47,14 @@ export function ClipCard({
   return (
     <li
       data-clip-card={clip.id}
-      className={`flex flex-col gap-2 rounded-lg border bg-white p-3 dark:bg-slate-950 ${
+      className={`flex flex-col gap-2 rounded-lg border bg-surface p-3 ${
         focused
           ? "border-indigo-500 ring-2 ring-indigo-500"
-          : "border-slate-200 dark:border-slate-700"
+          : "border-border"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <label className="flex items-center gap-2 text-xs text-fg-subtle">
           <input
             type="checkbox"
             checked={selected}
@@ -75,13 +75,13 @@ export function ClipCard({
       ) : null}
 
       {showOwner ? (
-        <p className="truncate text-xs text-slate-500 dark:text-slate-400">Dono: {ownerLabel(clip.owner_id)}</p>
+        <p className="truncate text-xs text-fg-subtle">Dono: {ownerLabel(clip.owner_id)}</p>
       ) : null}
 
       <button
         type="button"
         onClick={onOpenDetail}
-        className="group relative aspect-[9/16] w-full overflow-hidden rounded-md bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:bg-slate-800"
+        className="group relative aspect-[9/16] w-full overflow-hidden rounded-lg bg-border focus-ring"
       >
         {clip.thumbnail_key ? (
           // eslint-disable-next-line @next/next/no-img-element -- authenticated endpoint, next/image can't proxy cookies
@@ -91,7 +91,7 @@ export function ClipCard({
             className="h-full w-full object-cover"
           />
         ) : (
-          <span className="absolute inset-0 flex items-center justify-center text-xs text-slate-500 dark:text-slate-400">
+          <span className="absolute inset-0 flex items-center justify-center text-xs text-fg-subtle">
             {CLIP_STATUS_LABELS[clip.status]}
           </span>
         )}
@@ -103,7 +103,7 @@ export function ClipCard({
       </button>
 
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-slate-500 dark:text-slate-400">
+        <span className="text-xs text-fg-subtle">
           {isEpisode ? "Episódio de série" : `Score: ${clip.score != null ? clip.score.toFixed(2) : "—"}`}
         </span>
         {isEpisode ? null : <SignalBars signals={clip.signals} />}
@@ -112,7 +112,7 @@ export function ClipCard({
       <button
         type="button"
         onClick={onOpenDetail}
-        className="text-left text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+        className="text-left text-sm font-medium text-primary-text hover:underline"
       >
         Ver detalhes
       </button>

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import { NavCountsProvider } from "@/lib/nav-counts";
 import { ThemeScript } from "@/components/ThemeScript";
 import { AppShell } from "@/components/AppShell";
 import { ChannelProvider } from "@/lib/channel-context";
 import { AdminViewProvider } from "@/lib/admin-view";
 import { AuthProvider } from "@/lib/user-context";
 import { ToastProvider } from "@/components/ui/Toast";
+
+const inter = Inter({ subsets: ["latin", "latin-ext"], display: "swap", variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Projetos Cortes",
@@ -19,16 +23,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning className={inter.variable}>
       <head>
         <ThemeScript />
       </head>
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased dark:bg-slate-900 dark:text-slate-100">
+      <body className="min-h-screen">
         <ToastProvider>
           <AuthProvider>
             <AdminViewProvider>
               <ChannelProvider>
-                <AppShell>{children}</AppShell>
+                <NavCountsProvider>
+                  <AppShell>{children}</AppShell>
+                </NavCountsProvider>
               </ChannelProvider>
             </AdminViewProvider>
           </AuthProvider>

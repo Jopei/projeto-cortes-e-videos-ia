@@ -28,7 +28,7 @@ export function StorageMiniIndicator() {
   return (
     <Link
       href="/conta"
-      className="flex flex-col gap-1 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+      className="flex flex-col gap-1 rounded-lg border border-border px-3 py-2 text-xs text-fg-muted hover:bg-surface-2"
     >
       <span className="flex items-center justify-between">
         <span>Armazenamento</span>
@@ -44,10 +44,10 @@ export function StorageMiniIndicator() {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label="Armazenamento usado"
-          className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+          className="h-1.5 w-full overflow-hidden rounded-full bg-border"
         >
           <span
-            className={`block h-full rounded-full ${ratio >= 0.9 ? "bg-red-500" : ratio >= 0.7 ? "bg-amber-500" : "bg-indigo-600"}`}
+            className={`block h-full rounded-full ${ratio >= 0.9 ? "bg-red-500" : ratio >= 0.7 ? "bg-amber-500" : "bg-primary"}`}
             style={{ width: `${ratio * 100}%` }}
           />
         </span>

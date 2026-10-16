@@ -11,6 +11,7 @@ const STATUS_CONFIG: Record<Status, { label: string; dotClass: string }> = {
   offline: { label: "API indisponível", dotClass: "bg-red-500" },
 };
 
+/** 8px status dot (next to the logo). The text is available to screen readers and as a tooltip. */
 export function StatusIndicator() {
   const [status, setStatus] = useState<Status>("checking");
 
@@ -40,15 +41,9 @@ export function StatusIndicator() {
   const { label, dotClass } = STATUS_CONFIG[status];
 
   return (
-    <div
-      className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300"
-      role="status"
-    >
-      <span
-        aria-hidden="true"
-        className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`}
-      />
-      <span>{label}</span>
-    </div>
+    <span role="status" title={label} className="inline-flex items-center">
+      <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }

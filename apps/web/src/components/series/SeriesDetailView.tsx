@@ -196,18 +196,18 @@ export function SeriesDetailView({ seriesId }: { seriesId: string }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <Link href="/series" className="text-xs text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link href="/series" className="text-xs text-primary-text hover:underline">
                 ← Séries
               </Link>
               <SeriesStatusBadge status={status} />
-              <span className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <span className="flex items-center gap-1.5 text-xs text-fg-muted">
                 <ChannelColorDot color={channel?.color ?? null} />
                 {channel?.name ?? "Canal"}
               </span>
-              {showOwner ? <span className="text-xs text-slate-500 dark:text-slate-400">Dono: {ownerLabel(series.owner_id)}</span> : null}
+              {showOwner ? <span className="text-xs text-fg-subtle">Dono: {ownerLabel(series.owner_id)}</span> : null}
             </div>
-            <h1 className="truncate text-2xl font-semibold text-slate-900 dark:text-slate-50">{series.title || "Série sem título"}</h1>
-            <p className="text-xs text-slate-600 dark:text-slate-300">
+            <h1 className="truncate text-2xl font-semibold text-fg">{series.title || "Série sem título"}</h1>
+            <p className="text-xs text-fg-muted">
               {series.progress.published + series.progress.scheduled + series.progress.approved}/{EPISODE_COUNT} aprovados · {series.progress.published} publicados ·
               Custo {spent != null ? formatUsd(spent) : "—"}
               {series.budget_limit_usd != null ? ` / ${formatUsd(series.budget_limit_usd)}` : " (sem limite)"}
@@ -252,15 +252,15 @@ export function SeriesDetailView({ seriesId }: { seriesId: string }) {
 
       {status === "planning" ? (
         <div className={`${cardClass} flex flex-col items-center gap-3 py-10 text-center`} role="status">
-          <span className="text-indigo-600 dark:text-indigo-400">
+          <span className="text-primary-text">
             <Spinner />
           </span>
-          <p className="text-sm text-slate-700 dark:text-slate-200">
+          <p className="text-sm text-fg-muted">
             A IA está lendo sua premissa e planejando a temporada. Costuma levar alguns minutos.
           </p>
         </div>
       ) : status === "plan_failed" ? (
-        <div role="alert" className="flex flex-col gap-3 rounded-lg border border-red-400 bg-red-50 p-4 text-sm text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200">
+        <div role="alert" className="border-danger/40 bg-danger-soft text-fg flex flex-col gap-3 rounded-lg border p-4 text-sm">
           <p className="font-semibold">O planejamento da série falhou.</p>
           {series.error ? <p className="whitespace-pre-wrap">{series.error}</p> : null}
           <div className="flex gap-2">
@@ -356,7 +356,7 @@ function TabBar({ tab, onChange, attention }: { tab: TabId; onChange: (t: TabId)
     document.getElementById(`tab-${TABS[next].id}`)?.focus();
   }
   return (
-    <div role="tablist" aria-label="Seções da série" onKeyDown={onKeyDown} className="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-700">
+    <div role="tablist" aria-label="Seções da série" onKeyDown={onKeyDown} className="flex gap-1 overflow-x-auto border-b border-border">
       {TABS.map((t) => {
         const selected = t.id === tab;
         return (
@@ -369,10 +369,10 @@ function TabBar({ tab, onChange, attention }: { tab: TabId; onChange: (t: TabId)
             aria-controls={`panel-${t.id}`}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(t.id)}
-            className={`min-h-[44px] shrink-0 whitespace-nowrap rounded-t-md px-4 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 ${
+            className={`min-h-[44px] shrink-0 whitespace-nowrap rounded-t-md px-4 py-2 text-sm font-medium focus-ring ${
               selected
-                ? "border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400"
-                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                ? "border-b-2 border-indigo-600 text-primary-text"
+                : "text-fg-subtle hover:text-fg"
             }`}
           >
             {t.label}

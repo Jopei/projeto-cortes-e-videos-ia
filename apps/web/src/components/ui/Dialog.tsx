@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 type DialogProps = {
   open: boolean;
@@ -92,16 +93,16 @@ export function Dialog({ open, onClose, title, children, widthClassName, variant
         aria-labelledby={titleId}
         className={
           isDrawer
-            ? `relative z-10 h-full w-full overflow-y-auto bg-white p-4 shadow-2xl shadow-black/40 ring-1 ring-black/5 dark:bg-slate-800 dark:shadow-black/70 dark:ring-white/10 sm:p-6 md:border-l md:border-slate-200 md:dark:border-slate-600 ${
+            ? `relative z-10 h-full w-full overflow-y-auto bg-surface p-4 shadow-2xl shadow-black/40 ring-1 ring-black/5 dark:shadow-black/70 dark:ring-white/10 sm:p-6 md:border-l md:border-border ${
                 widthClassName ?? "md:max-w-3xl"
               }`
-            : `relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-2xl shadow-black/40 ring-1 ring-black/5 dark:border-slate-600 dark:bg-slate-800 dark:shadow-black/70 dark:ring-white/10 ${
+            : `relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-2xl shadow-black/40 ring-1 ring-black/5 dark:shadow-black/70 dark:ring-white/10 ${
                 widthClassName ?? "max-w-lg"
               }`
         }
       >
         <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 id={titleId} className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+          <h2 id={titleId} className="text-lg font-semibold text-fg">
             {title}
           </h2>
           <div className="flex shrink-0 items-center gap-1">
@@ -110,9 +111,9 @@ export function Dialog({ open, onClose, title, children, widthClassName, variant
               type="button"
               onClick={onClose}
               aria-label="Fechar diálogo"
-              className="shrink-0 rounded-md p-1 text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-slate-400 dark:hover:bg-slate-800"
+              className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-fg-muted hover:bg-surface-2 hover:text-fg"
             >
-              <span aria-hidden="true">✕</span>
+              <Icon name="x" />
             </button>
           </div>
         </div>

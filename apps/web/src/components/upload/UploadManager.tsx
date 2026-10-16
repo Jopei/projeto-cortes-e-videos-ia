@@ -293,18 +293,18 @@ export function UploadManager() {
       </div>
 
       <section aria-labelledby="step1-heading" className="flex flex-col gap-2">
-        <h2 id="step1-heading" className="text-base font-semibold text-slate-900 dark:text-slate-50">
+        <h2 id="step1-heading" className="text-base font-semibold text-fg">
           1. Selecione a fonte/licença
         </h2>
 
         {sourcesLoading ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Carregando fontes…</p>
+          <p className="text-sm text-fg-subtle">Carregando fontes…</p>
         ) : sourcesError ? (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="text-sm text-danger">
             {sourcesError}
           </p>
         ) : sources.length === 0 ? (
-          <div className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200">
+          <div className="border-warning/40 bg-warning-soft text-fg rounded-lg border p-3 text-sm">
             Nenhuma fonte cadastrada ainda.{" "}
             <Link href="/cortes/fontes-licencas" className="font-semibold underline">
               Cadastre uma fonte
@@ -313,14 +313,14 @@ export function UploadManager() {
           </div>
         ) : (
           <div className="flex flex-col gap-1">
-            <label htmlFor="source-select" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label htmlFor="source-select" className="text-sm font-medium text-fg-muted">
               Fonte
             </label>
             <select
               id="source-select"
               value={selectedSourceId}
               onChange={(e) => setSelectedSourceId(e.target.value)}
-              className="w-full max-w-md rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+              className="field-control w-full max-w-md"
             >
               <option value="">Selecione…</option>
               {sources.map((source) => (
@@ -333,7 +333,7 @@ export function UploadManager() {
         )}
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="upload-channel-select" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          <label htmlFor="upload-channel-select" className="text-sm font-medium text-fg-muted">
             Canal (opcional)
           </label>
           <select
@@ -343,7 +343,7 @@ export function UploadManager() {
               setUploadChannelId(e.target.value);
               setUploadChannelTouched(true);
             }}
-            className="w-full max-w-md rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+            className="field-control w-full max-w-md"
           >
             <option value="">Nenhum</option>
             {channels.map((c) => (
@@ -352,18 +352,18 @@ export function UploadManager() {
               </option>
             ))}
           </select>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-fg-subtle">
             Padrão: canal selecionado na barra lateral, ou o canal padrão da fonte (se houver).
           </p>
         </div>
       </section>
 
       <section aria-labelledby="step2-heading" className="flex flex-col gap-3">
-        <h2 id="step2-heading" className="text-base font-semibold text-slate-900 dark:text-slate-50">
+        <h2 id="step2-heading" className="text-base font-semibold text-fg">
           2. Envie os arquivos
         </h2>
 
-        <p className="rounded-md border border-amber-400 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200">
+        <p className="border-warning/40 bg-warning-soft text-fg rounded-lg border p-3 text-xs">
           Só envie conteúdo cuja licença cadastrada cubra o uso pretendido.
         </p>
 
@@ -376,10 +376,10 @@ export function UploadManager() {
           onDrop={handleDrop}
           className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
             uploadDisabled
-              ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600"
+              ? "cursor-not-allowed border-border bg-surface-2 text-fg-subtle"
               : isDragging
-                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
-                : "border-slate-300 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
+                ? "border-info/40 bg-info-soft text-fg"
+                : "border-border-strong bg-surface text-fg-muted"
           }`}
         >
           <p className="text-sm">
@@ -387,15 +387,15 @@ export function UploadManager() {
               ? "Selecione uma fonte acima para habilitar o envio."
               : "Arraste arquivos aqui ou use o seletor abaixo."}
           </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500">
+          <p className="text-xs text-fg-subtle">
             Formatos aceitos: {ACCEPTED_EXTENSIONS.join(", ")}
           </p>
           <label
             htmlFor="file-input"
-            className={`rounded-md border px-4 py-2 text-sm font-medium ${
+            className={`rounded-lg border px-4 py-2 text-sm font-medium ${
               uploadDisabled
-                ? "cursor-not-allowed border-slate-200 text-slate-400 dark:border-slate-800 dark:text-slate-600"
-                : "cursor-pointer border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                ? "cursor-not-allowed border-border text-fg-subtle"
+                : "cursor-pointer border-border-strong text-fg-muted hover:bg-surface-2"
             }`}
           >
             Escolher arquivos
@@ -428,31 +428,31 @@ export function UploadManager() {
 
       <section aria-labelledby="received-heading" className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h2 id="received-heading" className="text-base font-semibold text-slate-900 dark:text-slate-50">
+          <h2 id="received-heading" className="text-base font-semibold text-fg">
             Uploads recebidos
           </h2>
           <button
             type="button"
             onClick={() => loadAssets()}
-            className="text-sm font-medium text-indigo-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-indigo-400"
+            className="text-sm font-medium text-primary-text hover:underline focus-ring"
           >
             Atualizar
           </button>
         </div>
 
         {assetsLoading ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Carregando…</p>
+          <p className="text-sm text-fg-subtle">Carregando…</p>
         ) : assetsError ? (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="text-sm text-danger">
             {assetsError}
           </p>
         ) : assets.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Nenhum upload recebido ainda.</p>
+          <p className="text-sm text-fg-subtle">Nenhum upload recebido ainda.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+          <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
+            <table className="min-w-full divide-y divide-border text-sm">
               <caption className="sr-only">Arquivos já recebidos pelo servidor</caption>
-              <thead className="bg-slate-50 dark:bg-slate-900">
+              <thead className="bg-surface-2">
                 <tr>
                   <th scope="col" className={thClass}>
                     Arquivo
@@ -479,7 +479,7 @@ export function UploadManager() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+              <tbody className="divide-y bg-surface divide-border">
                 {assets.map((asset) => (
                   <tr key={asset.id}>
                     <td className={tdClass}>{asset.filename}</td>
@@ -498,14 +498,14 @@ export function UploadManager() {
                       <button
                         type="button"
                         onClick={() => setVideoTarget(asset)}
-                        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                        className="font-medium text-primary-text hover:underline"
                       >
                         Ver vídeo
                       </button>
                       <button
                         type="button"
                         onClick={() => setAnalyzeTarget(asset)}
-                        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                        className="font-medium text-primary-text hover:underline"
                       >
                         Analisar
                       </button>
@@ -515,7 +515,7 @@ export function UploadManager() {
                           setPendingChannelId(asset.channel_id ?? "");
                           setChannelChangeTarget(asset);
                         }}
-                        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                        className="font-medium text-primary-text hover:underline"
                       >
                         Trocar canal
                       </button>
@@ -547,7 +547,7 @@ export function UploadManager() {
       >
         {videoTarget ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption -- source video has no subtitle track guaranteed
-          <video controls className="w-full rounded-md bg-black" src={mediaAssetVideoUrl(videoTarget.id)} />
+          <video controls className="w-full rounded-lg bg-black" src={mediaAssetVideoUrl(videoTarget.id)} />
         ) : null}
       </Dialog>
 
@@ -558,14 +558,14 @@ export function UploadManager() {
       >
         {channelChangeTarget ? (
           <div className="flex flex-col gap-4">
-            <label htmlFor="change-channel-select" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label htmlFor="change-channel-select" className="text-sm font-medium text-fg-muted">
               Canal para {channelChangeTarget.filename}
             </label>
             <select
               id="change-channel-select"
               value={pendingChannelId}
               onChange={(e) => setPendingChannelId(e.target.value)}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+              className="field-control w-full"
             >
               <option value="">Nenhum</option>
               {channels.map((c) => (
@@ -596,14 +596,14 @@ export function UploadManager() {
                     setSavingChannel(false);
                   }
                 }}
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn btn-primary"
               >
                 {savingChannel ? "Salvando…" : "Salvar"}
               </button>
               <button
                 type="button"
                 onClick={() => setChannelChangeTarget(null)}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="btn btn-secondary"
               >
                 Cancelar
               </button>
@@ -616,8 +616,8 @@ export function UploadManager() {
 }
 
 const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300";
-const tdClass = "px-4 py-3 text-slate-800 dark:text-slate-100";
+  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted";
+const tdClass = "px-4 py-3 text-fg";
 
 const STATUS_LABELS: Record<UploadStatus, string> = {
   queued: "Na fila",
@@ -643,12 +643,12 @@ function UploadRow({
   const etaSeconds = item.speedBps > 0 ? remainingBytes / item.speedBps : null;
 
   return (
-    <li className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+    <li className="rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+        <span className="truncate text-sm font-medium text-fg">
           {item.filename}
         </span>
-        <span className="text-xs text-slate-500 dark:text-slate-400">
+        <span className="text-xs text-fg-subtle">
           {STATUS_LABELS[item.status]}
         </span>
       </div>
@@ -659,17 +659,17 @@ function UploadRow({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label={`Progresso do envio de ${item.filename}`}
-        className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+        className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border"
       >
         <div
           className={`h-full rounded-full transition-all ${
-            item.status === "error" ? "bg-red-500" : "bg-indigo-600"
+            item.status === "error" ? "bg-red-500" : "bg-primary"
           }`}
           style={{ width: `${percent}%` }}
         />
       </div>
 
-      <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-fg-subtle">
         <span>
           {formatBytes(item.bytesUploaded)} / {formatBytes(item.totalBytes)} ({percent.toFixed(0)}%)
         </span>
@@ -681,24 +681,24 @@ function UploadRow({
       </div>
 
       {item.error ? (
-        <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-1 text-xs text-danger">
           {item.error}
         </p>
       ) : null}
 
       <div className="mt-2 flex gap-3 text-xs font-medium">
         {item.status === "uploading" ? (
-          <button type="button" onClick={onPause} className="text-indigo-600 hover:underline dark:text-indigo-400">
+          <button type="button" onClick={onPause} className="text-primary-text hover:underline">
             Pausar
           </button>
         ) : null}
         {item.status === "paused" || item.status === "error" ? (
-          <button type="button" onClick={onResume} className="text-indigo-600 hover:underline dark:text-indigo-400">
+          <button type="button" onClick={onResume} className="text-primary-text hover:underline">
             Retomar
           </button>
         ) : null}
         {item.status !== "success" ? (
-          <button type="button" onClick={onCancel} className="text-red-600 hover:underline dark:text-red-400">
+          <button type="button" onClick={onCancel} className="text-danger hover:underline">
             Cancelar
           </button>
         ) : null}

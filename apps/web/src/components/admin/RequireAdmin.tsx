@@ -17,7 +17,7 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
     return (
       <div
         role="alert"
-        className="rounded-lg border border-red-400 bg-red-50 p-6 text-sm text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200"
+        className="border-danger/40 bg-danger-soft text-fg rounded-lg border p-6 text-sm"
       >
         <p className="font-semibold">Acesso restrito (403)</p>
         <p className="mt-1">Esta área é exclusiva para administradores.</p>

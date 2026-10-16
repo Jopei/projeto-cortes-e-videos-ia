@@ -64,7 +64,7 @@ export function BibleTab({
   }, [series.characters, filter]);
 
   if (!bible) {
-    return <p className="text-sm text-slate-600 dark:text-slate-300">A bíblia ainda não foi gerada.</p>;
+    return <p className="text-sm text-fg-muted">A bíblia ainda não foi gerada.</p>;
   }
 
   const view = draft ?? bible;
@@ -108,10 +108,10 @@ export function BibleTab({
     <Field
       id={id}
       label={label}
-      counter={opts?.max && editing ? <span className="text-xs text-slate-500">{value.length}/{opts.max}</span> : undefined}
+      counter={opts?.max && editing ? <span className="text-xs text-fg-subtle">{value.length}/{opts.max}</span> : undefined}
     >
       {ro ? (
-        <p className="whitespace-pre-wrap text-sm text-slate-900 dark:text-slate-100">{value || "—"}</p>
+        <p className="whitespace-pre-wrap text-sm text-fg">{value || "—"}</p>
       ) : opts?.rows ? (
         <textarea id={id} rows={opts.rows} maxLength={opts.max} value={value} onChange={(e) => set(e.target.value)} className={inputClass} />
       ) : (
@@ -148,7 +148,7 @@ export function BibleTab({
       </div>
 
       <details open className={cardClass}>
-        <summary className="cursor-pointer text-base font-semibold text-slate-900 dark:text-slate-50">Mundo</summary>
+        <summary className="cursor-pointer text-base font-semibold text-fg">Mundo</summary>
         <div className="mt-3 flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             {flat("Cenário", "bible-setting", view.world.setting, (v) => update((b) => void (b.world.setting = v)), { rows: 2 })}
@@ -156,12 +156,12 @@ export function BibleTab({
           </div>
           <div className="flex flex-col gap-2">
             <span className={labelClass}>Regras do mundo</span>
-            {view.world.rules.length === 0 && ro ? <p className="text-sm text-slate-500">—</p> : null}
+            {view.world.rules.length === 0 && ro ? <p className="text-sm text-fg-subtle">—</p> : null}
             <ul className="flex flex-col gap-2">
               {view.world.rules.map((rule, i) => (
                 <li key={i} className="flex items-start gap-2">
                   {ro ? (
-                    <span className="text-sm text-slate-900 dark:text-slate-100">• {rule}</span>
+                    <span className="text-sm text-fg">• {rule}</span>
                   ) : (
                     <>
                       <input aria-label={`Regra ${i + 1}`} value={rule} onChange={(e) => update((b) => void (b.world.rules[i] = e.target.value))} className={inputClass} />
@@ -183,11 +183,11 @@ export function BibleTab({
             <span className={labelClass}>Locais</span>
             <ul className="grid gap-3 md:grid-cols-2">
               {view.world.locations.map((loc, i) => (
-                <li key={loc.key} className="flex flex-col gap-1 rounded-md border border-slate-200 p-2 dark:border-slate-700">
+                <li key={loc.key} className="flex flex-col gap-1 rounded-lg border border-border p-2">
                   {ro ? (
                     <>
-                      <span className="text-sm font-medium text-slate-900 dark:text-slate-50">{loc.name}</span>
-                      <span className="text-xs text-slate-600 dark:text-slate-300">{loc.visual_description}</span>
+                      <span className="text-sm font-medium text-fg">{loc.name}</span>
+                      <span className="text-xs text-fg-muted">{loc.visual_description}</span>
                     </>
                   ) : (
                     <>
@@ -220,7 +220,7 @@ export function BibleTab({
       </details>
 
       <details open className={cardClass}>
-        <summary className="cursor-pointer text-base font-semibold text-slate-900 dark:text-slate-50">Estilo</summary>
+        <summary className="cursor-pointer text-base font-semibold text-fg">Estilo</summary>
         <div className="mt-3 flex flex-col gap-4">
           {flat("Voz de narração", "bible-voice", view.style_guide.narration_voice, (v) => update((b) => void (b.style_guide.narration_voice = v)), { rows: 2 })}
           {flat("Estilo visual", "bible-visual", view.style_guide.visual_style, (v) => update((b) => void (b.style_guide.visual_style = v)), { max: 300, rows: 3 })}
@@ -233,9 +233,9 @@ export function BibleTab({
           <div className="flex flex-col gap-1">
             <span className={labelClass}>Premissa-núcleo (somente leitura)</span>
             <ul className="flex flex-wrap gap-1.5">
-              {view.premise_core_elements.length === 0 ? <li className="text-sm text-slate-500">—</li> : null}
+              {view.premise_core_elements.length === 0 ? <li className="text-sm text-fg-subtle">—</li> : null}
               {view.premise_core_elements.map((el) => (
-                <li key={el} className="rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                <li key={el} className="rounded-full border border-border-strong bg-surface-2 px-2.5 py-0.5 text-xs text-fg-muted">
                   {el}
                 </li>
               ))}
@@ -246,7 +246,7 @@ export function BibleTab({
       </details>
 
       <details open className={cardClass}>
-        <summary className="cursor-pointer text-base font-semibold text-slate-900 dark:text-slate-50">Arco da temporada</summary>
+        <summary className="cursor-pointer text-base font-semibold text-fg">Arco da temporada</summary>
         <div className="mt-3 flex flex-col gap-4">
           {flat("Tema", "bible-theme", view.season_arc.theme, (v) => update((b) => void (b.season_arc.theme = v)))}
           {flat("Pergunta central", "bible-question", view.season_arc.central_question, (v) => update((b) => void (b.season_arc.central_question = v)), { rows: 2 })}
@@ -254,11 +254,11 @@ export function BibleTab({
           <div className="flex flex-col gap-1">
             <span className={labelClass}>Fios abertos</span>
             <ul className="flex flex-col gap-1">
-              {view.open_threads.length === 0 ? <li className="text-sm text-slate-500">Nenhum.</li> : null}
+              {view.open_threads.length === 0 ? <li className="text-sm text-fg-subtle">Nenhum.</li> : null}
               {view.open_threads.map((t) => (
-                <li key={t.key} className="flex flex-wrap items-center gap-2 text-sm text-slate-900 dark:text-slate-100">
+                <li key={t.key} className="flex flex-wrap items-center gap-2 text-sm text-fg">
                   <span>{t.description}</span>
-                  <span className="rounded-full border border-slate-300 px-2 py-0.5 text-xs text-slate-600 dark:border-slate-600 dark:text-slate-300">
+                  <span className="rounded-full border border-border-strong px-2 py-0.5 text-xs text-fg-muted">
                     {t.closed_in != null ? `fechado no Ep. ${t.closed_in}` : `aberto desde Ep. ${t.introduced_in}${t.planned_resolution_in != null ? ` / previsto Ep. ${t.planned_resolution_in}` : ""}`}
                   </span>
                 </li>
@@ -270,10 +270,10 @@ export function BibleTab({
 
       <section className={cardClass} aria-labelledby="characters-heading">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 id="characters-heading" className="text-base font-semibold text-slate-900 dark:text-slate-50">
+          <h2 id="characters-heading" className="text-base font-semibold text-fg">
             Personagens
           </h2>
-          <div role="group" aria-label="Filtrar personagens" className="flex overflow-hidden rounded-md border border-slate-300 text-sm dark:border-slate-600">
+          <div role="group" aria-label="Filtrar personagens" className="flex overflow-hidden rounded-lg border border-border-strong text-sm">
             {(
               [
                 ["all", "Todos"],
@@ -282,14 +282,14 @@ export function BibleTab({
                 ["other", "Outros"],
               ] as const
             ).map(([v, label]) => (
-              <button key={v} type="button" aria-pressed={filter === v} onClick={() => setFilter(v)} className={`min-h-[36px] px-3 py-1 font-medium ${filter === v ? "bg-indigo-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"}`}>
+              <button key={v} type="button" aria-pressed={filter === v} onClick={() => setFilter(v)} className={`min-h-[36px] px-3 py-1 font-medium ${filter === v ? "bg-primary text-white" : "text-fg-muted hover:bg-surface-2"}`}>
                 {label}
               </button>
             ))}
           </div>
         </div>
         {characters.length === 0 ? (
-          <p className="text-sm text-slate-600 dark:text-slate-300">Nenhum personagem neste filtro.</p>
+          <p className="text-sm text-fg-muted">Nenhum personagem neste filtro.</p>
         ) : (
           <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {characters.map((c) => (
@@ -307,15 +307,15 @@ export function BibleTab({
       </section>
 
       <section className={cardClass} aria-labelledby="events-heading">
-        <h2 id="events-heading" className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-50">
+        <h2 id="events-heading" className="mb-2 text-base font-semibold text-fg">
           Eventos de personagem
         </h2>
         <CharacterEventTimeline characters={series.characters} onOpenEpisode={onOpenEpisode} />
       </section>
 
       {editing ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-end gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 md:left-64">
-          <span className="mr-auto text-xs text-slate-600 dark:text-slate-300">{dirty ? "Alterações não salvas" : "Sem alterações"}</span>
+        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-end gap-2 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur md:left-64">
+          <span className="mr-auto text-xs text-fg-muted">{dirty ? "Alterações não salvas" : "Sem alterações"}</span>
           <button type="button" onClick={() => (dirty ? setDiscardOpen(true) : setDraft(null))} className={secondaryButton}>
             Descartar
           </button>
@@ -327,7 +327,7 @@ export function BibleTab({
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Salvar bíblia">
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-700 dark:text-slate-200">
+          <p className="text-sm text-fg-muted">
             Salvar a bíblia marca como Desatualizados os episódios com roteiro pronto ou aguardando aprovação ({impacted} {impacted === 1 ? "episódio" : "episódios"}). Eles serão reescritos.
           </p>
           <div className="flex justify-end gap-2">
@@ -343,7 +343,7 @@ export function BibleTab({
 
       <Dialog open={discardOpen} onClose={() => setDiscardOpen(false)} title="Descartar alterações">
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-700 dark:text-slate-200">Suas edições na bíblia serão perdidas.</p>
+          <p className="text-sm text-fg-muted">Suas edições na bíblia serão perdidas.</p>
           <div className="flex justify-end gap-2">
             <button type="button" data-autofocus onClick={() => setDiscardOpen(false)} className={secondaryButton}>
               Voltar
@@ -400,9 +400,9 @@ function ChipEditor({ label, values, editing, onChange }: { label: string; value
     <div className="flex flex-col gap-1">
       <span className={labelClass}>{label}</span>
       <ul className="flex flex-wrap gap-1.5">
-        {values.length === 0 ? <li className="text-sm text-slate-500">—</li> : null}
+        {values.length === 0 ? <li className="text-sm text-fg-subtle">—</li> : null}
         {values.map((v) => (
-          <li key={v} className="flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+          <li key={v} className="flex items-center gap-1 rounded-full border border-border-strong bg-surface-2 px-2.5 py-0.5 text-xs text-fg-muted">
             {v}
             {editing ? (
               <button type="button" aria-label={`Remover ${v}`} onClick={() => onChange(values.filter((x) => x !== v))} className="font-semibold">

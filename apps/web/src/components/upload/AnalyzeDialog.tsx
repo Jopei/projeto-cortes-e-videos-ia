@@ -9,8 +9,8 @@ import { analyzeMediaAsset, type MediaAsset } from "@/lib/media-assets";
 import { Dialog } from "@/components/ui/Dialog";
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50";
-const labelClass = "text-sm font-medium text-slate-700 dark:text-slate-200";
+  "field-control w-full";
+const labelClass = "text-sm font-medium text-fg-muted";
 
 type AnalyzeDialogProps = {
   mediaAsset: MediaAsset | null;
@@ -118,12 +118,12 @@ export function AnalyzeDialog({ mediaAsset, channels, onClose, onAnalyzed }: Ana
     <Dialog open={mediaAsset !== null} onClose={onClose} title="Analisar vídeo" widthClassName="max-w-2xl">
       {mediaAsset ? (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-fg-muted">
             Arquivo: <span className="font-medium">{mediaAsset.filename}</span>
           </p>
 
           {error ? (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           ) : null}
@@ -173,7 +173,7 @@ export function AnalyzeDialog({ mediaAsset, channels, onClose, onAnalyzed }: Ana
               <p className={labelClass}>Pesos por sinal</p>
               {SIGNAL_NAMES.map((signal) => (
                 <div key={signal} className="flex items-center gap-3">
-                  <label htmlFor={`analyze-weight-${signal}`} className="w-24 shrink-0 text-sm text-slate-700 dark:text-slate-200">
+                  <label htmlFor={`analyze-weight-${signal}`} className="w-24 shrink-0 text-sm text-fg-muted">
                     {SIGNAL_LABELS[signal]}
                   </label>
                   <input
@@ -188,7 +188,7 @@ export function AnalyzeDialog({ mediaAsset, channels, onClose, onAnalyzed }: Ana
                     }
                     className="flex-1"
                   />
-                  <span className="w-10 shrink-0 text-right text-sm text-slate-500 dark:text-slate-400">
+                  <span className="w-10 shrink-0 text-right text-sm text-fg-subtle">
                     {(weights[signal] ?? 0).toFixed(2)}
                   </span>
                 </div>
@@ -224,7 +224,7 @@ export function AnalyzeDialog({ mediaAsset, channels, onClose, onAnalyzed }: Ana
                 onChange={(e) => setMaxDuration(e.target.value)}
                 className={inputClass}
               />
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-fg-subtle">
                 Shorts até 60 s; YouTube aceita até 3 min.
               </p>
             </div>
@@ -285,14 +285,14 @@ export function AnalyzeDialog({ mediaAsset, channels, onClose, onAnalyzed }: Ana
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn btn-primary"
             >
               {submitting ? "Enviando…" : "Iniciar análise"}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="btn btn-secondary"
             >
               Cancelar
             </button>

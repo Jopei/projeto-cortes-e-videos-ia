@@ -16,6 +16,7 @@ import {
 import { ClipCard } from "@/components/revisao/ClipCard";
 import { ClipDetailDialog } from "@/components/revisao/ClipDetailDialog";
 import { PublishDialog } from "@/components/revisao/PublishDialog";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
@@ -166,14 +167,14 @@ export function RevisaoManager() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <label htmlFor="clip-status-filter" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="clip-status-filter" className="text-sm font-medium text-fg-muted">
           Status
         </label>
         <select
           id="clip-status-filter"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as ClipStatus | "")}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+          className="field-control"
         >
           {STATUS_OPTIONS.map((s) => (
             <option key={s || "all"} value={s}>
@@ -183,7 +184,7 @@ export function RevisaoManager() {
         </select>
 
         {jobIdFilter ? (
-          <span className="flex items-center gap-1 rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs text-indigo-800 dark:border-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-200">
+          <span className="border-info/40 bg-info-soft text-fg flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
             Job: {jobIdFilter.slice(0, 8)}…
             <button type="button" onClick={() => router.replace(pathname)} className="font-semibold" aria-label="Remover filtro de job">
               ✕
@@ -191,21 +192,21 @@ export function RevisaoManager() {
           </span>
         ) : null}
 
-        <p className="ml-auto rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+        <p className="ml-auto rounded-lg border border-border px-3 py-1.5 text-xs text-fg-subtle">
           Atalhos: <kbd className="font-semibold">J</kbd>/<kbd className="font-semibold">K</kbd> navega ·{" "}
           <kbd className="font-semibold">A</kbd> aprova · <kbd className="font-semibold">R</kbd> rejeita
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-slate-600 dark:text-slate-300">
+        <span className="text-sm text-fg-muted">
           {selectedIds.size} selecionado(s)
         </span>
         <button
           type="button"
           onClick={() => handleBulk("approve")}
           disabled={selectedIds.size === 0 || bulkLoading}
-          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn btn-success btn-sm"
         >
           Aprovar selecionados
         </button>
@@ -213,7 +214,7 @@ export function RevisaoManager() {
           type="button"
           onClick={() => handleBulk("reject")}
           disabled={selectedIds.size === 0 || bulkLoading}
-          className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn btn-danger btn-sm"
         >
           Rejeitar selecionados
         </button>
@@ -221,7 +222,7 @@ export function RevisaoManager() {
           type="button"
           onClick={() => setPublishClipIds(selectedApprovedIds)}
           disabled={selectedApprovedIds.length === 0}
-          className="rounded-md border border-indigo-600 px-3 py-1.5 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-indigo-400 dark:hover:bg-indigo-950/40"
+          className="btn btn-secondary btn-sm"
           title={
             selectedApprovedIds.length === 0
               ? "Selecione cortes já aprovados para publicar"
@@ -231,7 +232,7 @@ export function RevisaoManager() {
           Publicar selecionados ({selectedApprovedIds.length})
         </button>
         {selectedIds.size > 0 ? (
-          <button type="button" onClick={clearSelection} className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+          <button type="button" onClick={clearSelection} className="text-sm text-fg-subtle hover:underline">
             Limpar seleção
           </button>
         ) : null}
@@ -241,13 +242,15 @@ export function RevisaoManager() {
         {loading ? (
           <SkeletonList rows={4} />
         ) : error ? (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="text-sm text-danger">
             {error}
           </p>
         ) : clips.length === 0 ? (
           <EmptyState
-            title="Nenhum corte encontrado"
+            icon="review"
+            title="Nada para revisar agora"
             description="Cortes aparecem aqui depois que um job de análise termina. Envie um vídeo e analise-o na tela de Upload."
+            action={<Button href="/cortes/upload">Enviar um vídeo</Button>}
           />
         ) : (
           <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

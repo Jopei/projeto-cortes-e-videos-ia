@@ -42,16 +42,16 @@ export function AuditLogManager() {
       {loading ? (
         <SkeletonList rows={6} />
       ) : error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : entries.length === 0 ? (
         <EmptyState title="Nenhum registro de auditoria" description="Ações relevantes do sistema aparecerão aqui." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+        <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
+          <table className="min-w-full divide-y divide-border text-sm">
             <caption className="sr-only">Log de auditoria</caption>
-            <thead className="bg-slate-50 dark:bg-slate-900">
+            <thead className="bg-surface-2">
               <tr>
                 <th scope="col" className={thClass}>Data</th>
                 {showOwner ? <th scope="col" className={thClass}>Usuário</th> : null}
@@ -60,7 +60,7 @@ export function AuditLogManager() {
                 <th scope="col" className={thClass}>Detalhes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+            <tbody className="divide-y bg-surface divide-border">
               {entries.map((entry) => (
                 <tr key={entry.id}>
                   <td className={tdClass}>{new Date(entry.created_at).toLocaleString("pt-BR")}</td>
@@ -68,11 +68,11 @@ export function AuditLogManager() {
                   <td className={tdClass}>{entry.action}</td>
                   <td className={tdClass}>
                     {entry.entity}
-                    {entry.entity_id ? <span className="text-xs text-slate-400"> #{entry.entity_id.slice(0, 8)}</span> : null}
+                    {entry.entity_id ? <span className="text-xs text-fg-subtle"> #{entry.entity_id.slice(0, 8)}</span> : null}
                   </td>
                   <td className={`${tdClass} max-w-md`}>
                     {entry.details ? (
-                      <code className="block truncate text-xs text-slate-500 dark:text-slate-400" title={JSON.stringify(entry.details)}>
+                      <code className="block truncate text-xs text-fg-subtle" title={JSON.stringify(entry.details)}>
                         {JSON.stringify(entry.details)}
                       </code>
                     ) : (
@@ -91,16 +91,16 @@ export function AuditLogManager() {
           type="button"
           onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
           disabled={offset === 0}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="btn btn-secondary btn-sm"
         >
           ← Anterior
         </button>
-        <span className="text-xs text-slate-500 dark:text-slate-400">Página {Math.floor(offset / PAGE_SIZE) + 1}</span>
+        <span className="text-xs text-fg-subtle">Página {Math.floor(offset / PAGE_SIZE) + 1}</span>
         <button
           type="button"
           onClick={() => setOffset((prev) => prev + PAGE_SIZE)}
           disabled={entries.length < PAGE_SIZE}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="btn btn-secondary btn-sm"
         >
           Próxima →
         </button>
@@ -110,5 +110,5 @@ export function AuditLogManager() {
 }
 
 const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300";
-const tdClass = "px-4 py-3 text-slate-800 dark:text-slate-100";
+  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted";
+const tdClass = "px-4 py-3 text-fg";

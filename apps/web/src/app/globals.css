@@ -2,10 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
+/* Design tokens (RGB triples, so Tailwind can apply /opacity).
+   Dark mode inverts the old scheme: page = slate-950, cards = slate-900. */
+:root {
+  --bg: 248 250 252;
+  --surface: 255 255 255;
+  --surface-2: 241 245 249;
+  --border: 226 232 240;
+  --border-strong: 203 213 225;
+  --fg: 15 23 42;
+  --fg-muted: 71 85 105;
+  --fg-subtle: 100 116 139;
+  --primary: 79 70 229;
+  --primary-hover: 67 56 202;
+  --primary-soft: 238 242 255;
+  --primary-text: 67 56 202;
+  --ring: 99 102 241;
+  --success: 4 120 87;
+  --success-soft: 236 253 245;
+  --warning: 180 83 9;
+  --warning-soft: 255 251 235;
+  --danger: 185 28 28;
+  --danger-soft: 254 242 242;
+  --info: 3 105 161;
+  --info-soft: 240 249 255;
+  --radius: 0.5rem;
   color-scheme: light;
 }
 
 html.dark {
+  --bg: 2 6 23;
+  --surface: 15 23 42;
+  --surface-2: 30 41 59;
+  --border: 51 65 85;
+  --border-strong: 71 85 105;
+  --fg: 241 245 249;
+  --fg-muted: 203 213 225;
+  --fg-subtle: 148 163 184;
+  --primary: 79 70 229;
+  --primary-hover: 99 102 241;
+  --primary-soft: 29 32 77;
+  --primary-text: 165 180 252;
+  --ring: 129 140 248;
+  --success: 52 211 153;
+  --success-soft: 11 45 49;
+  --warning: 251 191 36;
+  --warning-soft: 60 38 20;
+  --danger: 248 113 113;
+  --danger-soft: 60 25 37;
+  --info: 56 189 248;
+  --info-soft: 14 43 69;
   color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply bg-bg font-sans text-fg antialiased;
+  }
+}
+
+@layer components {
+  .focus-ring {
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--ring))];
+  }
+
+  /* Buttons (see components/ui/Button.tsx). min-h keeps >= 40px touch targets. */
+  .btn {
+    @apply focus-ring inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none;
+  }
+  .btn-sm {
+    @apply min-h-[40px] px-3 py-1 md:min-h-[32px];
+  }
+  .btn-lg {
+    @apply min-h-[44px] px-5 text-base;
+  }
+  .btn-primary {
+    @apply bg-primary text-white shadow-sm hover:bg-primary-hover;
+  }
+  .btn-secondary {
+    @apply border border-border-strong bg-surface text-fg shadow-sm hover:bg-surface-2;
+  }
+  .btn-ghost {
+    @apply text-fg-muted hover:bg-surface-2 hover:text-fg;
+  }
+  .btn-success {
+    @apply bg-emerald-700 text-white shadow-sm hover:bg-emerald-800;
+  }
+  .btn-danger {
+    @apply bg-red-700 text-white shadow-sm hover:bg-red-800;
+  }
+  .btn-danger-outline {
+    @apply border border-danger/40 bg-surface text-danger hover:bg-danger-soft;
+  }
+
+  /* Form controls (inputs, selects, textareas). */
+  .field-control {
+    @apply min-h-[40px] rounded-lg border border-border-strong bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-subtle focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:bg-surface-2 disabled:opacity-70 aria-[invalid=true]:border-danger sm:text-sm;
+  }
+  select.field-control {
+    @apply appearance-none bg-[length:1rem] bg-[right_0.6rem_center] bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  }
 }

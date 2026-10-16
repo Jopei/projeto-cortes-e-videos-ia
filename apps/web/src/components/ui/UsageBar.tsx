@@ -17,7 +17,7 @@ export function UsageBar({
   const ratio = usageRatio(used, quota);
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
+      <div className="flex items-center justify-between text-xs text-fg-muted tabular-nums">
         <span>{label}</span>
         <span>{quota === null ? `${formatValue(used)} (sem limite)` : `${formatValue(used)} / ${formatValue(quota)}`}</span>
       </div>
@@ -28,10 +28,10 @@ export function UsageBar({
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label={label}
-          className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+          className="h-2 w-full overflow-hidden rounded-full bg-border"
         >
           <div
-            className={`h-full rounded-full ${ratio >= 0.9 ? "bg-red-500" : ratio >= 0.7 ? "bg-amber-500" : "bg-indigo-600"}`}
+            className={`h-full rounded-full ${ratio >= 1 ? "bg-danger" : ratio >= 0.8 ? "bg-warning" : "bg-primary"}`}
             style={{ width: `${ratio * 100}%` }}
           />
         </div>

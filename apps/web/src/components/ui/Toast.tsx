@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 type ToastVariant = "success" | "error" | "info";
@@ -11,13 +12,10 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const VARIANT_CLASSES: Record<ToastVariant, string> = {
-  success:
-    "border-emerald-400 bg-emerald-50 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/90 dark:text-emerald-200",
-  error:
-    "border-red-400 bg-red-50 text-red-900 dark:border-red-500 dark:bg-red-950/90 dark:text-red-200",
-  info:
-    "border-slate-300 bg-white text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100",
+const VARIANT_CLASSES: Record<ToastVariant, { bar: string; icon: IconName; color: string }> = {
+  success: { bar: "bg-success", icon: "checkCircle", color: "text-success" },
+  error: { bar: "bg-danger", icon: "alert", color: "text-danger" },
+  info: { bar: "bg-info", icon: "info", color: "text-info" },
 };
 
 function randomId(): string {
@@ -45,15 +43,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div
         aria-live="polite"
         aria-atomic="true"
-        className="pointer-events-none fixed inset-x-0 bottom-4 z-[100] flex flex-col items-center gap-2 px-4"
+        className="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex flex-col items-stretch gap-2 sm:left-auto sm:right-4 sm:w-96"
       >
         {toasts.map((t) => (
           <div
             key={t.id}
-            role="status"
-            className={`pointer-events-auto w-full max-w-sm rounded-md border px-4 py-3 text-sm shadow-lg ${VARIANT_CLASSES[t.variant]}`}
+            role={t.variant === "error" ? "alert" : "status"}
+            className="pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-xl border border-border bg-surface py-3 pl-5 pr-4 text-sm text-fg shadow-pop dark:ring-1 dark:ring-white/10"
           >
-            {t.message}
+            <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${VARIANT_CLASSES[t.variant].bar}`} />
+            <Icon name={VARIANT_CLASSES[t.variant].icon} className={`mt-0.5 ${VARIANT_CLASSES[t.variant].color}`} />
+            <span className="min-w-0 flex-1">{t.message}</span>
           </div>
         ))}
       </div>

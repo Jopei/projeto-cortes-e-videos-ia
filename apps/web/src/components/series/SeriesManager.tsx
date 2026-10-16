@@ -53,14 +53,14 @@ export function SeriesManager() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <label htmlFor="series-status-filter" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          <label htmlFor="series-status-filter" className="text-sm font-medium text-fg-muted">
             Status
           </label>
           <select
             id="series-status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as SeriesStatus | "")}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+            className="field-control"
           >
             <option value="">Todas</option>
             {SERIES_STATUSES.map((s) => (
@@ -155,25 +155,25 @@ function SeriesCard({
     <li>
       <Link
         href={`/series/${series.id}`}
-        className="flex h-full flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-950"
+        className="flex h-full flex-col gap-2 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4 hover:border-indigo-400 focus-ring"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+          <span className="flex min-w-0 items-center gap-1.5 text-xs text-fg-muted">
             <ChannelColorDot color={channel?.color ?? null} />
             <span className="truncate">{channel?.name ?? "Canal"}</span>
           </span>
           <SeriesStatusBadge status={series.status} />
         </div>
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">{series.title || "Série sem título"}</h2>
-        {ownerText ? <p className="text-xs text-slate-500 dark:text-slate-400">Dono: {ownerText}</p> : null}
+        <h2 className="text-base font-semibold text-fg">{series.title || "Série sem título"}</h2>
+        {ownerText ? <p className="text-xs text-fg-subtle">Dono: {ownerText}</p> : null}
 
         {series.status === "paused" && series.pause_reason ? (
-          <p className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
             {PAUSE_REASON_LABELS[series.pause_reason]}
           </p>
         ) : null}
         {series.status === "plan_failed" ? (
-          <p className="text-xs text-red-700 dark:text-red-300">O planejamento falhou. Abra a série para replanejar.</p>
+          <p className="text-xs text-danger">O planejamento falhou. Abra a série para replanejar.</p>
         ) : null}
 
         {series.status !== "planning" && series.status !== "plan_failed" ? (
@@ -181,7 +181,7 @@ function SeriesCard({
         ) : null}
 
         {next ? (
-          <p className="text-sm text-slate-700 dark:text-slate-200">
+          <p className="text-sm text-fg-muted">
             Próximo: {nextActionText(next.status, next.number)}
             {next.target_date ? ` · ${formatDateShort(next.target_date)}` : ""}
           </p>
@@ -190,13 +190,13 @@ function SeriesCard({
         {series.budget_limit_usd != null && spent != null ? (
           <UsageBar label="Custo" used={spent} quota={series.budget_limit_usd} formatValue={formatUsd} />
         ) : (
-          <p className="text-xs text-slate-600 dark:text-slate-300">
+          <p className="text-xs text-fg-muted">
             {series.budget_limit_usd == null ? "Sem limite de orçamento." : `Limite: ${formatUsd(series.budget_limit_usd)}.`}
             {spent != null ? ` Gasto: ${formatUsd(spent)}.` : ""}
           </p>
         )}
         {series.estimated_cost ? (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-fg-subtle">
             Estimado: {formatUsd(series.estimated_cost.per_episode_usd)}/episódio · {formatUsd(series.estimated_cost.season_usd)}/temporada
           </p>
         ) : null}

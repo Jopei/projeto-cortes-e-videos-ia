@@ -19,9 +19,9 @@ import { cardClass, secondaryButton } from "@/components/series/common";
 const DOT_CLASS: Record<string, string> = {
   done: "bg-emerald-500 border-emerald-600",
   wait: "bg-amber-500 border-amber-600",
-  work: "bg-indigo-500 border-indigo-600",
+  work: "bg-primary-hover border-indigo-600",
   fail: "bg-red-500 border-red-600",
-  idle: "bg-slate-200 border-slate-400 dark:bg-slate-700",
+  idle: "bg-border border-slate-400",
 };
 
 function dotKind(status: EpisodeStatus): keyof typeof DOT_CLASS {
@@ -80,14 +80,14 @@ export function OverviewTab({
     <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
       <div className="flex min-w-0 flex-col gap-4">
         <section className={cardClass} aria-labelledby="next-step-heading">
-          <h2 id="next-step-heading" className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-50">
+          <h2 id="next-step-heading" className="mb-2 text-base font-semibold text-fg">
             Próximo passo para você
           </h2>
           {attention.length > 0 ? (
             <ul className="flex flex-col gap-2">
               {attention.map((e) => (
-                <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm dark:border-amber-600 dark:bg-amber-950/30">
-                  <span className="text-slate-900 dark:text-slate-100">{nextActionText(e.status, e.number)}</span>
+                <li key={e.id} className="border-warning/40 bg-warning-soft text-fg flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2 text-sm">
+                  <span className="text-fg">{nextActionText(e.status, e.number)}</span>
                   <button type="button" onClick={() => onOpenEpisode(e.number)} className={secondaryButton}>
                     Revisar episódio
                   </button>
@@ -95,7 +95,7 @@ export function OverviewTab({
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-slate-600 dark:text-slate-300">
+            <p className="text-sm text-fg-muted">
               Nada pendente.
               {nextPlanned
                 ? ` O próximo episódio é o Ep. ${nextPlanned.number}${nextPlanned.target_date ? `, em ${formatDateShort(nextPlanned.target_date)} às ${series.publish_time.slice(0, 5)}` : ""}.`
@@ -105,7 +105,7 @@ export function OverviewTab({
         </section>
 
         <section className={cardClass} aria-labelledby="timeline-heading">
-          <h2 id="timeline-heading" className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-50">
+          <h2 id="timeline-heading" className="mb-3 text-base font-semibold text-fg">
             Linha do tempo ({episodes.length} episódios)
           </h2>
           <ol className="flex flex-col gap-1 lg:flex-row lg:overflow-x-auto lg:pb-2">
@@ -120,19 +120,19 @@ export function OverviewTab({
                   <button
                     type="button"
                     onClick={() => onOpenEpisode(e.number)}
-                    className="flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 dark:hover:bg-slate-900 lg:flex-col lg:items-start"
+                    className="flex w-full items-center gap-2 rounded-lg p-2 text-left hover:bg-surface-2 focus-ring lg:flex-col lg:items-start"
                   >
                     <span className="flex items-center gap-2">
                       <span aria-hidden="true" className={`h-3 w-3 shrink-0 rounded-full border ${DOT_CLASS[dotKind(e.status)]}`} />
-                      <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">Ep. {e.number}</span>
-                      {isToday ? <span className="rounded bg-indigo-600 px-1 text-[10px] font-semibold text-white">Hoje</span> : null}
+                      <span className="text-sm font-semibold text-fg">Ep. {e.number}</span>
+                      {isToday ? <span className="rounded bg-primary px-1 text-[10px] font-semibold text-white">Hoje</span> : null}
                     </span>
                     <span className="min-w-0 flex-1 lg:w-full">
-                      <span className="block text-xs text-slate-600 dark:text-slate-300">
+                      <span className="block text-xs text-fg-muted">
                         {formatDateShort(e.target_date)}
                         {series.publish_time ? ` ${series.publish_time.slice(0, 5)}` : ""}
                       </span>
-                      <span className="block truncate text-xs text-slate-700 dark:text-slate-200">{e.title}</span>
+                      <span className="block truncate text-xs text-fg-muted">{e.title}</span>
                       {shifted > 0 ? (
                         <span
                           className="block text-xs text-amber-700 dark:text-amber-300"
@@ -148,10 +148,10 @@ export function OverviewTab({
               );
             })}
           </ol>
-          <p className="mt-3 text-sm text-slate-700 dark:text-slate-200">
+          <p className="mt-3 text-sm text-fg-muted">
             Publicados {counts.published} · Agendados {counts.scheduled} · Aguardando você {counts.waiting} · Falhas {counts.failed}
           </p>
-          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+          <p className="mt-1 text-xs text-fg-muted">
             Arco:{" "}
             {phases.map((p, i) => (
               <span key={`${p.phase}-${p.from}`}>
@@ -165,16 +165,16 @@ export function OverviewTab({
 
       <aside className="flex flex-col gap-4">
         <section className={cardClass} aria-labelledby="cost-card-heading">
-          <h2 id="cost-card-heading" className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-50">
+          <h2 id="cost-card-heading" className="mb-2 text-base font-semibold text-fg">
             Custo
           </h2>
           {spent != null ? (
             <UsageBar label="Acumulado" used={spent} quota={series.budget_limit_usd} formatValue={formatUsd} />
           ) : (
-            <p className="text-sm text-slate-600 dark:text-slate-300">Limite: {series.budget_limit_usd != null ? formatUsd(series.budget_limit_usd) : "sem limite"}</p>
+            <p className="text-sm text-fg-muted">Limite: {series.budget_limit_usd != null ? formatUsd(series.budget_limit_usd) : "sem limite"}</p>
           )}
           {series.estimated_cost ? (
-            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+            <p className="mt-2 text-xs text-fg-muted">
               Estimado: {formatUsd(series.estimated_cost.per_episode_usd)}/episódio · {formatUsd(series.estimated_cost.season_usd)}/temporada
               {remaining != null ? ` · restante ~${formatUsd(remaining)}` : ""}
             </p>
@@ -183,10 +183,10 @@ export function OverviewTab({
 
         <section className={cardClass} aria-labelledby="config-card-heading">
           <div className="mb-2 flex items-center justify-between">
-            <h2 id="config-card-heading" className="text-base font-semibold text-slate-900 dark:text-slate-50">
+            <h2 id="config-card-heading" className="text-base font-semibold text-fg">
               Configuração
             </h2>
-            <button type="button" onClick={onEditSettings} className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+            <button type="button" onClick={onEditSettings} className="text-sm font-medium text-primary-text hover:underline">
               Editar
             </button>
           </div>
@@ -203,13 +203,13 @@ export function OverviewTab({
               ["Aprovar roteiro", series.require_script_approval ? "Sim" : "Não"],
             ].map(([k, v]) => (
               <div key={k} className="contents">
-                <dt className="text-slate-500 dark:text-slate-400">{k}</dt>
-                <dd className="break-words text-slate-900 dark:text-slate-100">{v}</dd>
+                <dt className="text-fg-subtle">{k}</dt>
+                <dd className="break-words text-fg">{v}</dd>
               </div>
             ))}
           </dl>
           {series.status === "planned" ? (
-            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-3 text-xs text-fg-subtle">
               Criada em {formatDateTimeShort(series.created_at)}
             </p>
           ) : null}

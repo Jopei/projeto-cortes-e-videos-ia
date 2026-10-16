@@ -81,11 +81,11 @@ export function StartDialog({ series, onClose, onDone }: CommonProps & { onDone:
         <Field id="start-date" label="Data do primeiro episódio" hint={`Mínimo: hoje + ${series.lead_days} dia(s) de antecedência.`}>
           <input id="start-date" type="date" min={min} value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} aria-describedby="start-date-hint" />
         </Field>
-        <p className="text-sm text-slate-700 dark:text-slate-200">
+        <p className="text-sm text-fg-muted">
           Ep. 1 vai ao ar em {label} às {series.publish_time}; a IA começa a preparar agora.
         </p>
         {series.estimated_cost ? (
-          <p className="text-sm text-slate-700 dark:text-slate-200">
+          <p className="text-sm text-fg-muted">
             Estimativa da temporada: <strong>{formatUsd(series.estimated_cost.season_usd)}</strong> ({formatUsd(series.estimated_cost.per_episode_usd)} por episódio).
             Você só gasta com mídia depois de aprovar cada roteiro{series.require_script_approval ? "" : " (a aprovação de roteiro está desligada nesta série)"}.
           </p>
@@ -128,10 +128,10 @@ export function CancelDialog({ series, onClose, onDone }: CommonProps & { onDone
     <Dialog open onClose={onClose} title="Cancelar série">
       <div className="flex flex-col gap-4">
         {error ? <Notice tone="danger">{error}</Notice> : null}
-        <p className="text-sm text-slate-700 dark:text-slate-200">
+        <p className="text-sm text-fg-muted">
           A série para de gerar novos episódios. Episódios publicados continuam no ar.
         </p>
-        <label className="flex items-start gap-2 text-sm text-slate-800 dark:text-slate-100">
+        <label className="flex items-start gap-2 text-sm text-fg">
           <input type="checkbox" checked={alsoPublications} onChange={(e) => setAlsoPublications(e.target.checked)} className="mt-0.5 h-4 w-4" />
           Cancelar também as publicações já agendadas
         </label>
@@ -171,7 +171,7 @@ export function DeleteDialog({ series, onClose }: CommonProps) {
     <Dialog open onClose={onClose} title="Excluir série">
       <div className="flex flex-col gap-4">
         {error ? <Notice tone="danger">{error}</Notice> : null}
-        <p className="text-sm text-slate-700 dark:text-slate-200">
+        <p className="text-sm text-fg-muted">
           Excluir &ldquo;{series.title}&rdquo;? Esta ação não pode ser desfeita.
         </p>
         <div className="flex justify-end gap-2">
@@ -286,7 +286,7 @@ export function SeriesSettingsDialog({ series, onClose, onDone }: CommonProps & 
           <span className={labelClass}>
             Premissa (somente leitura)
           </span>
-          <p className="max-h-28 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-100 p-2 text-xs text-slate-700 dark:bg-slate-900 dark:text-slate-200">{series.premise}</p>
+          <p className="max-h-28 overflow-y-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-2 text-xs text-fg-muted">{series.premise}</p>
           <p className={hintClass}>A premissa não pode ser editada.</p>
         </div>
         <Field id="set-title" label="Título">
@@ -355,7 +355,7 @@ export function SeriesSettingsDialog({ series, onClose, onDone }: CommonProps & 
             </Field>
           ) : null}
         </div>
-        <label className="flex items-start gap-2 text-sm text-slate-800 dark:text-slate-100">
+        <label className="flex items-start gap-2 text-sm text-fg">
           <input type="checkbox" checked={requireApproval} onChange={(e) => setRequireApproval(e.target.checked)} className="mt-0.5 h-4 w-4" />
           Exigir aprovação do roteiro antes de gerar mídia
         </label>

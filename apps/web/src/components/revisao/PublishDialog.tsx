@@ -15,7 +15,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { PublicationStatusBadge } from "@/components/ui/StatusBadges";
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50";
+  "field-control w-full";
 
 export function PublishDialog({
   clipIds,
@@ -96,33 +96,33 @@ export function PublishDialog({
     <Dialog open={open} onClose={onClose} title="Publicar selecionados" widthClassName="max-w-2xl">
       {result ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-slate-700 dark:text-slate-200">
+          <p className="text-sm text-fg-muted">
             {result.created.length} publicação(ões) processada(s).
           </p>
           <ul className="flex flex-col gap-2">
             {result.created.map((pub) => (
               <li
                 key={pub.id}
-                className="flex flex-col gap-1 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-700"
+                className="flex flex-col gap-1 rounded-lg border border-border p-3 text-sm"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span>{PLATFORM_LABELS[pub.platform]}</span>
                   <PublicationStatusBadge status={pub.status} />
                 </div>
                 {pub.block_reasons && pub.block_reasons.length > 0 ? (
-                  <ul className="list-disc pl-5 text-xs text-red-600 dark:text-red-400">
+                  <ul className="list-disc pl-5 text-xs text-danger">
                     {pub.block_reasons.map((reason) => (
                       <li key={reason}>{blockReasonLabel(reason)}</li>
                     ))}
                   </ul>
                 ) : null}
                 {pub.error ? (
-                  <p className="text-xs text-red-600 dark:text-red-400">{pub.error}</p>
+                  <p className="text-xs text-danger">{pub.error}</p>
                 ) : null}
               </li>
             ))}
           </ul>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-fg-subtle">
             Publicações &quot;bloqueadas&quot; foram barradas pela trava de direitos autorais (licença da
             fonte não permite esse uso) — ajuste a licença ou a plataforma de destino antes de tentar de
             novo.
@@ -130,26 +130,26 @@ export function PublishDialog({
           <button
             type="button"
             onClick={onClose}
-            className="self-start rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="btn btn-secondary self-start"
           >
             Fechar
           </button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-fg-muted">
             {clipIds.length} corte(s) selecionado(s).
           </p>
 
           {error ? (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           ) : null}
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium text-slate-700 dark:text-slate-200">Destino</legend>
-            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+            <legend className="text-sm font-medium text-fg-muted">Destino</legend>
+            <label className="flex items-center gap-2 text-sm text-fg-muted">
               <input
                 type="radio"
                 name="target"
@@ -158,7 +158,7 @@ export function PublishDialog({
               />
               Todas as contas do canal de cada corte
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+            <label className="flex items-center gap-2 text-sm text-fg-muted">
               <input
                 type="radio"
                 name="target"
@@ -168,9 +168,9 @@ export function PublishDialog({
               Contas específicas
             </label>
             {target === "accounts" ? (
-              <div className="flex flex-col gap-1 rounded-md border border-slate-200 p-2 dark:border-slate-700">
+              <div className="flex flex-col gap-1 rounded-lg border border-border p-2">
                 {accounts.length === 0 ? (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Nenhuma conta cadastrada.</p>
+                  <p className="text-xs text-fg-subtle">Nenhuma conta cadastrada.</p>
                 ) : (
                   accounts.map((account) => (
                     <label key={account.id} className="flex items-center gap-2 text-sm">
@@ -188,7 +188,7 @@ export function PublishDialog({
           </fieldset>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="publish-schedule" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label htmlFor="publish-schedule" className="text-sm font-medium text-fg-muted">
               Agendamento
             </label>
             <select
@@ -212,7 +212,7 @@ export function PublishDialog({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="publish-privacy" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label htmlFor="publish-privacy" className="text-sm font-medium text-fg-muted">
               Privacidade
             </label>
             <select
@@ -234,14 +234,14 @@ export function PublishDialog({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn btn-primary"
             >
               {submitting ? "Publicando…" : "Publicar"}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="btn btn-secondary"
             >
               Cancelar
             </button>

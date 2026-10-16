@@ -17,7 +17,7 @@ export function EpisodeProgressBar({ progress, total }: { progress: SeriesProgre
     done: "bg-emerald-500",
     wait: "bg-amber-500",
     fail: "bg-red-500",
-    idle: "bg-slate-200 dark:bg-slate-700",
+    idle: "bg-border",
   } as const;
   const label = `${done} de ${total} episódios aprovados, ${waiting} aguardando sua ação`;
   return (
@@ -27,7 +27,7 @@ export function EpisodeProgressBar({ progress, total }: { progress: SeriesProgre
           <span key={i} className={`h-2 flex-1 rounded-sm ${color[kind]}`} />
         ))}
       </div>
-      <p className="text-xs text-slate-600 dark:text-slate-300" aria-hidden="true">
+      <p className="text-xs text-fg-muted" aria-hidden="true">
         {done}/{total} aprovados · {progress.published} publicados
         {waiting > 0 ? ` · ${waiting} aguardando você` : ""}
         {failed > 0 ? ` · ${failed} com falha` : ""}

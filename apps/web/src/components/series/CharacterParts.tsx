@@ -35,7 +35,7 @@ export function CharacterAvatar({ seriesId, character, version }: { seriesId: st
   useEffect(() => setFailed(false), [version, character.has_reference_image]);
   const dead = character.status === "dead";
   return (
-    <span className="relative flex h-24 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-200 text-sm font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+    <span className="relative flex h-24 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-border text-sm font-semibold text-fg-muted">
       {character.has_reference_image && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element -- authenticated endpoint, next/image can't proxy cookies
         <img
@@ -74,29 +74,29 @@ export function CharacterCard({
 }) {
   const lastEvent = [...c.events].filter((e) => e.state !== "discarded" && e.to_status && e.to_status !== "alive").sort((a, b) => b.episode_number - a.episode_number)[0];
   return (
-    <li className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+    <li className="flex gap-3 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-3">
       <CharacterAvatar seriesId={seriesId} character={c} version={imageVersion} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <CharacterStatusBadge status={c.status} />
           {!c.committed ? <Badge variant="neutral" className="border-dashed">Proposto</Badge> : null}
         </div>
-        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-          {c.name} <span className="font-normal text-slate-500 dark:text-slate-400">· {CHARACTER_ROLE_LABELS[c.role] ?? c.role}</span>
+        <p className="text-sm font-semibold text-fg">
+          {c.name} <span className="font-normal text-fg-subtle">· {CHARACTER_ROLE_LABELS[c.role] ?? c.role}</span>
         </p>
-        {c.introduced_in_episode != null ? <p className="text-xs text-slate-500 dark:text-slate-400">Introduzida no Ep. {c.introduced_in_episode}</p> : null}
-        <p className="line-clamp-2 text-xs text-slate-700 dark:text-slate-200">{c.description}</p>
+        {c.introduced_in_episode != null ? <p className="text-xs text-fg-subtle">Introduzida no Ep. {c.introduced_in_episode}</p> : null}
+        <p className="line-clamp-2 text-xs text-fg-muted">{c.description}</p>
         {lastEvent ? (
-          <p className="text-xs text-slate-600 dark:text-slate-300">
+          <p className="text-xs text-fg-muted">
             Ep. {lastEvent.episode_number}: {lastEvent.description || lastEvent.to_status}
             {lastEvent.state === "proposed" ? " (proposto)" : ""}
           </p>
         ) : null}
         <div className="mt-1 flex gap-3 text-sm font-medium">
-          <button type="button" onClick={onEdit} className="text-indigo-600 hover:underline dark:text-indigo-400">
+          <button type="button" onClick={onEdit} className="text-primary-text hover:underline">
             Editar
           </button>
-          <button type="button" onClick={onImage} className="text-indigo-600 hover:underline dark:text-indigo-400">
+          <button type="button" onClick={onImage} className="text-primary-text hover:underline">
             Imagem de ref.
           </button>
         </div>
@@ -298,7 +298,7 @@ export function ReferenceImageDialog({
           <CharacterAvatar seriesId={series.id} character={{ ...character, has_reference_image: hasImage }} version={version} />
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element -- local blob preview
-            <img src={preview} alt="Prévia da nova imagem" className="h-24 w-14 rounded-md object-cover" />
+            <img src={preview} alt="Prévia da nova imagem" className="h-24 w-14 rounded-lg object-cover" />
           ) : null}
         </div>
         <p className={hintClass}>

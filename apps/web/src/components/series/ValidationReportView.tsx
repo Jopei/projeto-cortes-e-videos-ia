@@ -25,7 +25,7 @@ export function ValidationReportView({
   onJumpToScene: (position: number) => void;
 }) {
   if (!validation) {
-    return <p className="text-sm text-slate-600 dark:text-slate-300">Ainda não validado.</p>;
+    return <p className="text-sm text-fg-muted">Ainda não validado.</p>;
   }
   const blockers = validation.issues.filter((i) => i.severity === "blocker");
   const warnings = validation.issues.filter((i) => i.severity === "warning");
@@ -43,7 +43,7 @@ export function ValidationReportView({
           </Badge>
         )}
         {blockers.length === 0 && warnings.length > 0 ? <Badge variant="warning">{warnings.length} {warnings.length === 1 ? "aviso" : "avisos"}</Badge> : null}
-        {attempts > 0 ? <span className="text-xs text-slate-500 dark:text-slate-400">Tentativa {Math.min(attempts, 3)} de 3</span> : null}
+        {attempts > 0 ? <span className="text-xs text-fg-subtle">Tentativa {Math.min(attempts, 3)} de 3</span> : null}
       </div>
 
       {validation.scores ? (
@@ -51,7 +51,7 @@ export function ValidationReportView({
           {Object.entries(validation.scores).map(([k, v]) =>
             typeof v === "number" ? (
               <li key={k} className="flex flex-col gap-1">
-                <span className="flex justify-between text-xs text-slate-700 dark:text-slate-200">
+                <span className="flex justify-between text-xs text-fg-muted">
                   <span>{SCORE_LABELS[k] ?? k}</span>
                   <span>{v.toFixed(2)}</span>
                 </span>
@@ -68,22 +68,22 @@ export function ValidationReportView({
             const position =
               issue.scene_index != null && script ? script.scenes.findIndex((s) => s.index === issue.scene_index) : -1;
             return (
-              <li key={i} className="flex flex-col gap-1 rounded-md border border-slate-200 p-2 text-sm dark:border-slate-700">
+              <li key={i} className="flex flex-col gap-1 rounded-lg border border-border p-2 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={issue.severity === "blocker" ? "danger" : "warning"}>{issue.severity === "blocker" ? "Bloqueio" : "Aviso"}</Badge>
-                  <span className="font-medium text-slate-900 dark:text-slate-50">{VALIDATION_CODE_LABELS[issue.code] ?? issue.code}</span>
+                  <span className="font-medium text-fg">{VALIDATION_CODE_LABELS[issue.code] ?? issue.code}</span>
                   {issue.scene_index != null ? (
                     position >= 0 ? (
-                      <button type="button" onClick={() => onJumpToScene(position)} className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                      <button type="button" onClick={() => onJumpToScene(position)} className="text-xs font-medium text-primary-text hover:underline">
                         Cena {position + 1}
                       </button>
                     ) : (
-                      <span className="text-xs text-slate-500">Cena {issue.scene_index}</span>
+                      <span className="text-xs text-fg-subtle">Cena {issue.scene_index}</span>
                     )
                   ) : null}
                 </div>
-                <p className="text-slate-700 dark:text-slate-200">{issue.message}</p>
-                {issue.suggestion ? <p className="text-xs text-slate-600 dark:text-slate-300">Sugestão: {issue.suggestion}</p> : null}
+                <p className="text-fg-muted">{issue.message}</p>
+                {issue.suggestion ? <p className="text-xs text-fg-muted">Sugestão: {issue.suggestion}</p> : null}
               </li>
             );
           })}

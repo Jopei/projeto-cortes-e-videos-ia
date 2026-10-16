@@ -2,7 +2,7 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`animate-pulse rounded-md bg-slate-200 dark:bg-slate-800 ${className ?? "h-4 w-full"}`}
+      className={`animate-pulse rounded-lg bg-surface-2 motion-reduce:animate-none ${className ?? "h-4 w-full"}`}
     />
   );
 }

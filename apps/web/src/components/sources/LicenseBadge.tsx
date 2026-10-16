@@ -10,13 +10,13 @@ import {
 export function LicenseTypeBadge({ licenseType }: { licenseType: LicenseType }) {
   if (licenseType === "ai_generated") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-indigo-400 bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-900 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-200">
+      <span className="border-info/40 bg-info-soft text-fg inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium">
         <span aria-hidden="true">✦</span> {LICENSE_TYPE_LABELS[licenseType]}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+    <span className="inline-flex items-center rounded-full border border-border-strong bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-fg-muted">
       {LICENSE_TYPE_LABELS[licenseType]}
     </span>
   );
@@ -34,7 +34,7 @@ export function SourceWarningBadges({ source }: { source: Source }) {
       {restriction ? (
         <span
           role="status"
-          className="inline-flex items-center gap-1 rounded-full border border-amber-400 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-900 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200"
+          className="border-warning/40 bg-warning-soft text-fg inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium"
         >
           <span aria-hidden="true">⚠</span> {restriction}
         </span>
@@ -42,7 +42,7 @@ export function SourceWarningBadges({ source }: { source: Source }) {
       {expired ? (
         <span
           role="status"
-          className="inline-flex items-center gap-1 rounded-full border border-red-400 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200"
+          className="border-danger/40 bg-danger-soft text-fg inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium"
         >
           <span aria-hidden="true">⚠</span> licença vencida
         </span>

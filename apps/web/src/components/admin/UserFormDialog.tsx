@@ -9,8 +9,8 @@ import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/Toast";
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50";
-const labelClass = "text-sm font-medium text-slate-700 dark:text-slate-200";
+  "field-control w-full";
+const labelClass = "text-sm font-medium text-fg-muted";
 
 type CreateProps = {
   mode: "create";
@@ -132,7 +132,7 @@ export function UserFormDialog(props: CreateProps | EditProps) {
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error ? (
-          <p role="alert" className="rounded-md border border-red-400 bg-red-50 p-2 text-sm text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200">
+          <p role="alert" className="border-danger/40 bg-danger-soft text-fg rounded-lg border p-2 text-sm">
             {error}
           </p>
         ) : null}
@@ -173,25 +173,25 @@ export function UserFormDialog(props: CreateProps | EditProps) {
               <button
                 type="button"
                 onClick={() => setShowPassword((s) => !s)}
-                className="shrink-0 rounded-md border border-slate-300 px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="btn btn-secondary btn-sm shrink-0"
               >
                 {showPassword ? "Ocultar" : "Mostrar"}
               </button>
             </div>
             <div className="flex gap-3 pt-1 text-xs font-medium">
-              <button type="button" onClick={handleGeneratePassword} className="text-indigo-600 hover:underline dark:text-indigo-400">
+              <button type="button" onClick={handleGeneratePassword} className="text-primary-text hover:underline">
                 Gerar senha forte
               </button>
               <button
                 type="button"
                 onClick={handleCopyPassword}
                 disabled={!password}
-                className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
+                className="text-primary-text hover:underline disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Copiar
               </button>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-fg-subtle">
               Mínimo de {MIN_PASSWORD_LENGTH} caracteres.
             </p>
           </div>
@@ -254,7 +254,7 @@ export function UserFormDialog(props: CreateProps | EditProps) {
         )}
 
         <fieldset className="flex flex-col gap-3">
-          <legend className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-50">Cotas</legend>
+          <legend className="mb-1 text-sm font-semibold text-fg">Cotas</legend>
 
           <QuotaField
             label="Armazenamento (GB)"
@@ -299,14 +299,14 @@ export function UserFormDialog(props: CreateProps | EditProps) {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn btn-primary"
           >
             {submitting ? "Salvando…" : props.mode === "create" ? "Criar usuário" : "Salvar alterações"}
           </button>
           <button
             type="button"
             onClick={props.onClose}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="btn btn-secondary"
           >
             Cancelar
           </button>
@@ -334,7 +334,7 @@ function QuotaField({
   const id = `quota-${label.replace(/\s+/g, "-").toLowerCase()}`;
   return (
     <div className="flex items-center gap-3">
-      <label htmlFor={id} className="w-48 shrink-0 text-sm text-slate-700 dark:text-slate-200">
+      <label htmlFor={id} className="w-48 shrink-0 text-sm text-fg-muted">
         {label}
       </label>
       <input
@@ -347,7 +347,7 @@ function QuotaField({
         onChange={(e) => onValueChange(e.target.value)}
         className={`${inputClass} disabled:opacity-50`}
       />
-      <label className="flex shrink-0 items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+      <label className="flex shrink-0 items-center gap-1.5 text-xs text-fg-muted">
         <input
           type="checkbox"
           checked={unlimited}

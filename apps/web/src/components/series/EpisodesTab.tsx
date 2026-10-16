@@ -11,7 +11,7 @@ const VIEW_KEY = "cortes.series.episodes-view";
 
 export function EpisodesTab({ series, onOpenEpisode }: { series: SeriesDetail; onOpenEpisode: (n: number) => void }) {
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [onlyAttention, setOnlyAttention] = useState(false);
+  const [onlyAttention, setOnlyAttention] = useState(() => series.episodes.some((e) => episodeNeedsAttention(e.status)));
   const [phase, setPhase] = useState<ArcPhase | "">("");
 
   useEffect(() => {
@@ -34,26 +34,26 @@ export function EpisodesTab({ series, onOpenEpisode }: { series: SeriesDetail; o
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div role="group" aria-label="Modo de exibição" className="flex overflow-hidden rounded-md border border-slate-300 dark:border-slate-600">
+        <div role="group" aria-label="Modo de exibição" className="flex overflow-hidden rounded-lg border border-border-strong">
           {(["grid", "list"] as const).map((v) => (
             <button
               key={v}
               type="button"
               aria-pressed={view === v}
               onClick={() => changeView(v)}
-              className={`min-h-[36px] px-3 py-1.5 text-sm font-medium ${view === v ? "bg-indigo-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"}`}
+              className={`min-h-[36px] px-3 py-1.5 text-sm font-medium ${view === v ? "bg-primary text-white" : "text-fg-muted hover:bg-surface-2"}`}
             >
               {v === "grid" ? "Grade" : "Lista"}
             </button>
           ))}
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+        <label className="flex items-center gap-2 text-sm text-fg-muted">
           <input type="checkbox" checked={onlyAttention} onChange={(e) => setOnlyAttention(e.target.checked)} className="h-4 w-4" />
           Precisam de ação
         </label>
-        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+        <label className="flex items-center gap-2 text-sm text-fg-muted">
           Fase
-          <select value={phase} onChange={(e) => setPhase(e.target.value as ArcPhase | "")} className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900">
+          <select value={phase} onChange={(e) => setPhase(e.target.value as ArcPhase | "")} className="field-control">
             <option value="">Todas</option>
             {(Object.keys(ARC_PHASE_LABELS) as ArcPhase[]).map((p) => (
               <option key={p} value={p}>
@@ -65,9 +65,9 @@ export function EpisodesTab({ series, onOpenEpisode }: { series: SeriesDetail; o
       </div>
 
       {episodes.length === 0 ? (
-        <p className="text-sm text-slate-600 dark:text-slate-300">Nenhum episódio com esses filtros.</p>
+        <p className="text-sm text-fg-muted">Nenhum episódio com esses filtros.</p>
       ) : view === "grid" ? (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <ul className="flex flex-col gap-2 sm:grid sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
           {episodes.map((e) => (
             <EpisodeCard key={e.id} episode={e} publishTime={series.publish_time} onOpen={() => onOpenEpisode(e.number)} />
           ))}
@@ -87,9 +87,9 @@ function EpisodeCard({ episode: e, publishTime, onOpen }: { episode: EpisodeSumm
       <button
         type="button"
         onClick={onOpen}
-        className={`${cardClass} flex h-full w-full flex-col gap-1.5 p-2 text-left hover:border-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500`}
+        className={`${cardClass} flex min-h-[56px] h-full w-full flex-row flex-wrap items-center gap-x-3 gap-y-1 p-3 text-left hover:border-primary focus-ring sm:flex-col sm:flex-nowrap sm:items-stretch sm:gap-1.5 sm:p-2`}
       >
-        <span className="relative flex aspect-[9/16] w-full items-center justify-center overflow-hidden rounded bg-slate-200 text-2xl font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+        <span className="relative hidden aspect-[9/16] w-full items-center justify-center overflow-hidden rounded bg-border text-2xl font-semibold text-fg-subtle sm:flex">
           {hasThumb ? (
             // eslint-disable-next-line @next/next/no-img-element -- authenticated endpoint, next/image can't proxy cookies
             <img src={clipThumbnailUrl(e.clip_id!)} alt="" loading="lazy" onError={() => setThumbFailed(true)} className="h-full w-full object-cover" />
@@ -97,15 +97,15 @@ function EpisodeCard({ episode: e, publishTime, onOpen }: { episode: EpisodeSumm
             e.number
           )}
         </span>
-        <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">Ep. {e.number}</span>
-        <span className="line-clamp-2 text-xs text-slate-700 dark:text-slate-200">{e.title}</span>
-        <ArcPhaseChip phase={e.arc_phase} />
+        <span className="text-sm font-semibold text-fg">Ep. {e.number}</span>
+        <span className="line-clamp-2 min-w-0 flex-1 text-sm text-fg-muted sm:flex-none sm:text-xs">{e.title}</span>
+        <span className="hidden sm:block"><ArcPhaseChip phase={e.arc_phase} /></span>
         <EpisodeStatusBadge status={e.status} />
-        <span className="text-xs text-slate-500 dark:text-slate-400">
+        <span className="hidden text-xs text-fg-subtle sm:inline">
           {formatDateShort(e.target_date)} {publishTime.slice(0, 5)} · {formatUsd(e.cost_usd ?? 0)}
         </span>
         {e.error && (e.status === "needs_attention" || e.status === "stale") ? (
-          <span className="line-clamp-2 text-xs text-red-700 dark:text-red-300">{e.error.split("\n")[0]}</span>
+          <span className="line-clamp-2 text-xs text-danger">{e.error.split("\n")[0]}</span>
         ) : null}
       </button>
     </li>
@@ -114,37 +114,37 @@ function EpisodeCard({ episode: e, publishTime, onOpen }: { episode: EpisodeSumm
 
 function EpisodeList({ episodes, maxRegens, onOpen }: { episodes: EpisodeSummary[]; maxRegens: number; onOpen: (n: number) => void }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-      <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+    <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
+      <table className="min-w-full divide-y divide-border text-sm">
         <caption className="sr-only">Episódios da série</caption>
-        <thead className="bg-slate-50 dark:bg-slate-900">
+        <thead className="bg-surface-2">
           <tr>
             {["Nº", "Título", "Fase", "Status", "Data", "Custo", "Regenerações"].map((h) => (
-              <th key={h} scope="col" className="px-3 py-2 text-left text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+              <th key={h} scope="col" className="px-3 py-2 text-left text-xs font-semibold uppercase text-fg-subtle">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+        <tbody className="divide-y bg-surface divide-border">
           {episodes.map((e) => (
             <tr key={e.id}>
               <td className="px-3 py-2">
-                <button type="button" onClick={() => onOpen(e.number)} className="font-semibold text-indigo-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 dark:text-indigo-400" aria-label={`Abrir episódio ${e.number}`}>
+                <button type="button" onClick={() => onOpen(e.number)} className="font-semibold text-primary-text hover:underline focus-ring" aria-label={`Abrir episódio ${e.number}`}>
                   {e.number}
                 </button>
               </td>
-              <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
+              <td className="px-3 py-2 text-fg">
                 {e.title}
                 {e.error && (e.status === "needs_attention" || e.status === "stale") ? (
-                  <span className="block text-xs text-red-700 dark:text-red-300">{e.error.split("\n")[0]}</span>
+                  <span className="block text-xs text-danger">{e.error.split("\n")[0]}</span>
                 ) : null}
               </td>
               <td className="px-3 py-2"><ArcPhaseChip phase={e.arc_phase} /></td>
               <td className="px-3 py-2"><EpisodeStatusBadge status={e.status} /></td>
-              <td className="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-200">{formatDateShort(e.target_date)}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-200">{formatUsd(e.cost_usd ?? 0)}</td>
-              <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{e.regenerations}/{maxRegens}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-fg-muted">{formatDateShort(e.target_date)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-fg-muted">{formatUsd(e.cost_usd ?? 0)}</td>
+              <td className="px-3 py-2 text-fg-muted">{e.regenerations}/{maxRegens}</td>
             </tr>
           ))}
         </tbody>

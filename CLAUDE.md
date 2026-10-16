@@ -666,6 +666,17 @@ Plano: `docs/series-ia-plano.md`. Base compartilhada por API e worker:
   /api/series/providers` ganhou `llm: {fake, configured}`. Dev local apenas.
 - `SeriesRead.cost_usd_total` e todo custo nas respostas são `float`.
 
+## Dashboard: bloco `attention`
+
+`GET /api/dashboard/summary` ganhou `attention` (aditivo; mesmo escopo
+`get_scope` + `channel_id`; episódios filtram por `StorySeries.channel_id`,
+publicações por `Clip.channel_id`): `clips_pending_review` (só cortes, sem
+`episode_id`), `episodes_awaiting_script_approval`, `episodes_pending_review`,
+`episodes_needs_attention`, `series_paused` (`paused` com `pause_reason`
+nulo ou != `user`), `publications_failed`, `jobs_failed_recent` (`failed`
+nas últimas 24h por `created_at`) e `total` (soma dos sete). Testes em
+`tests/test_dashboard_attention.py`.
+
 ## Testes
 
 `services/api/tests/`: `conftest.py` cria as tabelas `sources`/`media_assets`

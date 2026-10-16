@@ -1,17 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { navGroups } from "@/lib/nav";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { usePathname } from "next/navigation";
+import { isActivePath, navGroups, type NavBadgeKey } from "@/lib/nav";
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { ChannelPicker } from "@/components/channels/ChannelPicker";
-import { AdminViewPicker } from "@/components/admin/AdminViewPicker";
-import { logout } from "@/lib/auth";
+import { UserMenu } from "@/components/UserMenu";
+import { Icon } from "@/components/ui/Icon";
 import { useAuth } from "@/lib/user-context";
+import { useNavCounts } from "@/lib/nav-counts";
+import { useAdminView } from "@/lib/admin-view";
 import { displayNameOf } from "@/lib/admin-users";
-import { StorageMiniIndicator } from "@/components/account/StorageMiniIndicator";
 
 type SidebarProps = {
   onNavigate?: () => void;
@@ -19,113 +18,100 @@ type SidebarProps = {
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user } = useAuth();
-  const [loggingOut, setLoggingOut] = useState(false);
+  const { summary } = useNavCounts();
+  const { asUser, asUserId } = useAdminView();
 
-  async function handleLogout() {
-    setLoggingOut(true);
-    try {
-      await logout();
-    } catch {
-      // best-effort: still send the user to the login screen
-    } finally {
-      router.replace("/login");
-    }
-  }
+  const attention = summary?.attention;
+  // Badge: [count, tone, accessible description]. Hidden when the API predates `attention`.
+  const badges: Partial<Record<NavBadgeKey, { count: number; tone: "primary" | "warning"; label: string }>> =
+    attention
+      ? {
+          review: {
+            count: attention.clips_pending_review,
+            tone: "primary",
+            label: "cortes aguardando revisão",
+          },
+          publications: {
+            count: attention.publications_failed,
+            tone: "warning",
+            label: "publicações com falha",
+          },
+          series: {
+            count: attention.episodes_needs_attention + attention.series_paused,
+            tone: "warning",
+            label: "itens de séries precisam de ação",
+          },
+        }
+      : {};
 
   const visibleGroups = navGroups.filter((group) => !group.adminOnly || user?.is_admin);
 
   return (
-    <nav
-      aria-label="Navegação principal"
-      className="flex h-full flex-col gap-6 overflow-y-auto p-4"
-    >
-      <div className="px-1">
-        <span className="text-lg font-semibold text-slate-900 dark:text-slate-50">
-          Projetos Cortes
+    <nav aria-label="Navegação principal" className="flex h-full flex-col gap-4 overflow-y-auto p-3">
+      <div className="flex items-center gap-2.5 px-1 pt-1">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-white">
+          <Icon name="scissors" size={16} />
         </span>
+        <span className="text-base font-semibold text-fg">Projetos Cortes</span>
+        <StatusIndicator />
       </div>
 
-      <ChannelPicker />
+      <div className="flex flex-col gap-2">
+        <ChannelPicker />
+        {user?.is_admin && asUserId ? (
+          <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-warning/40 bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning">
+            <Icon name="eye" size={12} /> Vendo como {asUser ? displayNameOf(asUser) : "…"}
+          </span>
+        ) : null}
+      </div>
 
-      {user?.is_admin ? <AdminViewPicker /> : null}
-
-      <div className="flex flex-1 flex-col gap-6">
-        {visibleGroups.map((group) => {
-          const isSingleLink = !group.items || group.items.length === 0;
-
-          return (
-            <div key={group.id}>
-              <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                {group.label}
-              </p>
-
-              {isSingleLink ? (
-                <Link
-                  href={group.href}
-                  onClick={onNavigate}
-                  aria-current={pathname === group.href ? "page" : undefined}
-                  className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
-                    pathname === group.href
-                      ? "bg-indigo-600 text-white"
-                      : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  {group.label}
-                </Link>
-              ) : (
-                <ul className="flex flex-col gap-1">
-                  {group.items!.map((item) => {
-                    const active = pathname === item.href;
-                    return (
-                      <li key={item.href}>
-                        <Link
-                          href={item.href}
-                          onClick={onNavigate}
-                          aria-current={active ? "page" : undefined}
-                          className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
-                            active
-                              ? "bg-indigo-600 text-white"
-                              : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+      <div className="flex flex-1 flex-col gap-4">
+        {visibleGroups.map((group) => (
+          <div key={group.id}>
+            {group.label ? <p className="mb-1 px-3 text-xs font-medium text-fg-subtle">{group.label}</p> : null}
+            <ul className="flex flex-col gap-0.5">
+              {group.items.map((item) => {
+                const active = isActivePath(pathname, item.href);
+                const badge = item.badge ? badges[item.badge] : undefined;
+                const showBadge = badge && badge.count > 0;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      aria-current={active ? "page" : undefined}
+                      className={`focus-ring relative flex min-h-[40px] items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors md:min-h-[36px] md:py-1.5 ${
+                        active
+                          ? "bg-primary-soft text-primary-text before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r before:bg-primary"
+                          : "text-fg-muted hover:bg-surface-2 hover:text-fg"
+                      }`}
+                    >
+                      <Icon name={item.icon} />
+                      <span className="truncate">{item.label}</span>
+                      {showBadge ? (
+                        <span
+                          className={`ml-auto min-w-[1.25rem] rounded-full px-1.5 text-center text-xs font-semibold tabular-nums ${
+                            badge.tone === "primary"
+                              ? "bg-primary text-white"
+                              : "border border-warning/40 bg-warning-soft text-warning"
                           }`}
                         >
-                          {item.label}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          );
-        })}
+                          {badge.count > 99 ? "99+" : badge.count}
+                          <span className="sr-only"> {badge.label}</span>
+                        </span>
+                      ) : null}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
-        {!user?.is_admin ? <StorageMiniIndicator /> : null}
-        {user ? (
-          <div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
-            <Link
-              href="/conta"
-              onClick={onNavigate}
-              className="truncate font-medium text-slate-700 hover:underline dark:text-slate-200"
-              title={displayNameOf(user)}
-            >
-              {displayNameOf(user)}
-            </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="shrink-0 font-medium text-indigo-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-indigo-400"
-            >
-              {loggingOut ? "Saindo…" : "Sair"}
-            </button>
-          </div>
-        ) : null}
-        <StatusIndicator />
-        <ThemeToggle />
+      <div className="border-t border-border pt-3">
+        <UserMenu onNavigate={onNavigate} />
       </div>
     </nav>
   );

@@ -259,10 +259,10 @@ export function EpisodeDrawer({
 
   const prevNext = (
     <div className="flex items-center gap-1" role="group" aria-label="Navegar entre episódios">
-      <button type="button" onClick={() => onNavigate(number - 1)} disabled={number <= 1 || locked} aria-label="Episódio anterior" className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 disabled:opacity-40 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+      <button type="button" onClick={() => onNavigate(number - 1)} disabled={number <= 1 || locked} aria-label="Episódio anterior" className="btn btn-secondary btn-sm">
         <span aria-hidden="true">‹</span>
       </button>
-      <button type="button" onClick={() => onNavigate(number + 1)} disabled={number >= EPISODE_COUNT || locked} aria-label="Próximo episódio" className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 disabled:opacity-40 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+      <button type="button" onClick={() => onNavigate(number + 1)} disabled={number >= EPISODE_COUNT || locked} aria-label="Próximo episódio" className="btn btn-secondary btn-sm">
         <span aria-hidden="true">›</span>
       </button>
     </div>
@@ -286,11 +286,11 @@ export function EpisodeDrawer({
           <div className="flex flex-wrap items-center gap-2">
             {status ? <EpisodeStatusBadge status={status} /> : null}
             {(detail?.arc_phase ?? summary?.arc_phase) ? <ArcPhaseChip phase={(detail?.arc_phase ?? summary!.arc_phase)} /> : null}
-            <span className="text-xs text-slate-600 dark:text-slate-300">
+            <span className="text-xs text-fg-muted">
               {detail?.scheduled_at ? `Publica ${formatDateTimeShort(detail.scheduled_at, series.timezone)}` : `Data ${formatDateShort(summary?.target_date)} ${series.publish_time.slice(0, 5)}`}
             </span>
-            <span className="text-xs text-slate-600 dark:text-slate-300">Custo {formatUsd(detail?.cost_usd ?? summary?.cost_usd ?? 0)}</span>
-            <span className="text-xs text-slate-600 dark:text-slate-300">
+            <span className="text-xs text-fg-muted">Custo {formatUsd(detail?.cost_usd ?? summary?.cost_usd ?? 0)}</span>
+            <span className="text-xs text-fg-muted">
               Regenerações {detail?.regenerations ?? summary?.regenerations ?? 0}/{series.max_regenerations_per_episode}
             </span>
           </div>
@@ -342,14 +342,14 @@ export function EpisodeDrawer({
             <>
               <section aria-labelledby="ep-outline" className={cardClass}>
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 id="ep-outline" className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                  <h3 id="ep-outline" className="text-sm font-semibold text-fg">
                     Sinopse
                   </h3>
                   {outlineEditable && !outlineDraft ? (
                     <button
                       type="button"
                       onClick={() => setOutlineDraft({ summary: detail.outline?.summary ?? "", events: (detail.outline?.key_events ?? []).join("\n") })}
-                      className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                      className="text-sm font-medium text-primary-text hover:underline"
                     >
                       Editar sinopse
                     </button>
@@ -375,13 +375,13 @@ export function EpisodeDrawer({
                 ) : detail.outline ? (
                   <OutlineView outline={detail.outline} series={series} />
                 ) : (
-                  <p className="text-sm text-slate-600 dark:text-slate-300">Sem sinopse.</p>
+                  <p className="text-sm text-fg-muted">Sem sinopse.</p>
                 )}
               </section>
 
               {detail.script || detail.validation ? (
                 <section aria-labelledby="ep-validation" className={cardClass}>
-                  <h3 id="ep-validation" className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-50">
+                  <h3 id="ep-validation" className="mb-2 text-sm font-semibold text-fg">
                     Validação
                   </h3>
                   <ValidationReportView validation={detail.validation} attempts={detail.validation_attempts} script={detail.script} onJumpToScene={jumpToScene} />
@@ -391,11 +391,11 @@ export function EpisodeDrawer({
               {detail.script ? (
                 <section aria-labelledby="ep-script" className={cardClass}>
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h3 id="ep-script" className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                    <h3 id="ep-script" className="text-sm font-semibold text-fg">
                       Roteiro (revisão {detail.script_revision})
                     </h3>
                     {canEditScript && !editingScript ? (
-                      <button type="button" onClick={() => setDraft(JSON.parse(JSON.stringify(detail.script)) as EpisodeScript)} disabled={locked} className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                      <button type="button" onClick={() => setDraft(JSON.parse(JSON.stringify(detail.script)) as EpisodeScript)} disabled={locked} className="text-sm font-medium text-primary-text hover:underline">
                         Editar roteiro
                       </button>
                     ) : null}
@@ -434,7 +434,7 @@ export function EpisodeDrawer({
                         ))}
                       </ol>
                       {detail.script.cliffhanger ? (
-                        <p className="text-sm text-slate-700 dark:text-slate-200">
+                        <p className="text-sm text-fg-muted">
                           <span className="font-medium">Cliffhanger:</span> {detail.script.cliffhanger}
                         </p>
                       ) : null}
@@ -445,7 +445,7 @@ export function EpisodeDrawer({
 
               {detail.state_events.length > 0 ? (
                 <section aria-labelledby="ep-events" className={cardClass}>
-                  <h3 id="ep-events" className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-50">
+                  <h3 id="ep-events" className="mb-2 text-sm font-semibold text-fg">
                     Eventos de estado propostos
                   </h3>
                   <ul className="flex flex-col gap-2">
@@ -453,15 +453,15 @@ export function EpisodeDrawer({
                       const c = characters.find((x) => x.key === ev.character_key);
                       const kills = ev.to_status === "dead";
                       return (
-                        <li key={ev.id} className={`rounded-md border p-2 text-sm ${kills ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30" : "border-slate-200 dark:border-slate-700"}`}>
+                        <li key={ev.id} className={`rounded-lg border p-2 text-sm ${kills ? "border-warning/40 bg-warning-soft text-fg" : "border-border"}`}>
                           <span aria-hidden="true">{ev.to_status ? CHARACTER_STATUS_SYMBOLS[ev.to_status] : ""} </span>
-                          <span className="text-slate-900 dark:text-slate-100">
+                          <span className="text-fg">
                             {ev.type === "introduce"
                               ? `${c?.name ?? ev.character_key}: introduzido`
                               : `${c?.name ?? ev.character_key}: ${ev.from_status ? CHARACTER_STATUS_LABELS[ev.from_status].toLowerCase() : "—"} → ${ev.to_status ? CHARACTER_STATUS_LABELS[ev.to_status].toLowerCase() : "—"}`}
                             {ev.state === "proposed" ? " (proposto)" : ev.state === "applied" ? " (aplicado)" : ""}
                           </span>
-                          {ev.description ? <span className="block text-xs text-slate-600 dark:text-slate-300">{ev.description}</span> : null}
+                          {ev.description ? <span className="block text-xs text-fg-muted">{ev.description}</span> : null}
                           {kills && ev.state !== "applied" ? <span className="block text-xs font-medium text-amber-800 dark:text-amber-200">Esta cena mata um personagem. Só entra em vigor ao aprovar o vídeo.</span> : null}
                         </li>
                       );
@@ -472,10 +472,10 @@ export function EpisodeDrawer({
 
               <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
                 <section aria-labelledby="ep-video" className="flex flex-col gap-2">
-                  <h3 id="ep-video" className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                  <h3 id="ep-video" className="text-sm font-semibold text-fg">
                     Vídeo
                   </h3>
-                  <div className="relative mx-auto aspect-[9/16] w-full max-w-[280px] overflow-hidden rounded-md bg-black">
+                  <div className="relative mx-auto aspect-[9/16] w-full max-w-[280px] overflow-hidden rounded-lg bg-black">
                     {detail.clip_id && status && HAS_VIDEO_STATUSES.includes(status) ? (
                       <>
                         {/* eslint-disable-next-line jsx-a11y/media-has-caption -- narration is burned in/not subtitled by the generator */}
@@ -489,14 +489,14 @@ export function EpisodeDrawer({
                     )}
                   </div>
                   {detail.clip_id && status && HAS_VIDEO_STATUSES.includes(status) ? (
-                    <Link href="/cortes/revisao" className="text-center text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                    <Link href="/cortes/revisao" className="text-center text-xs font-medium text-primary-text hover:underline">
                       Ver metadados
                     </Link>
                   ) : null}
                 </section>
 
                 <section aria-labelledby="ep-jobs" className="flex min-w-0 flex-col gap-2">
-                  <h3 id="ep-jobs" className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                  <h3 id="ep-jobs" className="text-sm font-semibold text-fg">
                     Jobs de mídia
                   </h3>
                   <MediaJobsTable jobs={detail.media_jobs} generating={status === "generating_media"} />
@@ -505,23 +505,23 @@ export function EpisodeDrawer({
 
               {detail.publications.length > 0 ? (
                 <section aria-labelledby="ep-pubs" className={cardClass}>
-                  <h3 id="ep-pubs" className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-50">
+                  <h3 id="ep-pubs" className="mb-2 text-sm font-semibold text-fg">
                     Publicações
                   </h3>
                   <ul className="flex flex-col gap-2">
                     {detail.publications.map((p) => (
                       <li key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
                         <PublicationStatusBadge status={p.status} />
-                        <span className="text-slate-900 dark:text-slate-100">{PLATFORM_LABELS[p.platform] ?? p.platform}</span>
-                        <span className="text-xs text-slate-600 dark:text-slate-300">{formatDateTimeShort(p.published_at ?? p.scheduled_at, series.timezone)}</span>
+                        <span className="text-fg">{PLATFORM_LABELS[p.platform] ?? p.platform}</span>
+                        <span className="text-xs text-fg-muted">{formatDateTimeShort(p.published_at ?? p.scheduled_at, series.timezone)}</span>
                         <AiBadge />
                         {p.status === "exported" ? (
-                          <a href={publicationExportUrl(p.id)} className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                          <a href={publicationExportUrl(p.id)} className="text-xs font-medium text-primary-text hover:underline">
                             Baixar pacote de exportação
                           </a>
                         ) : null}
                         {p.external_url ? (
-                          <a href={p.external_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                          <a href={p.external_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-primary-text hover:underline">
                             Abrir
                           </a>
                         ) : null}
@@ -582,16 +582,16 @@ function Stepper({ status }: { status: EpisodeStatus }) {
             <span
               className={`rounded-full border px-2 py-0.5 font-medium ${
                 isCurrent
-                  ? "border-indigo-500 bg-indigo-600 text-white"
+                  ? "border-indigo-500 bg-primary text-white"
                   : done
-                    ? "border-emerald-400 bg-emerald-50 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    : "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300"
+                    ? "border-success/40 bg-success-soft text-fg"
+                    : "border-border-strong text-fg-muted"
               }`}
             >
               {done && !isCurrent ? <span aria-hidden="true">✓ </span> : null}
               {i === 5 && status === "published" ? "Publicado" : label}
             </span>
-            {i < STEPS.length - 1 ? <span aria-hidden="true" className="text-slate-400">›</span> : null}
+            {i < STEPS.length - 1 ? <span aria-hidden="true" className="text-fg-subtle">›</span> : null}
           </li>
         );
       })}
@@ -773,7 +773,7 @@ function ActionBar({
 
   if (!primary && secondary.length === 0) return null;
   return (
-    <div className="sticky bottom-0 -mx-4 -mb-4 mt-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-600 dark:bg-slate-800/95 sm:-mx-6 sm:-mb-6 sm:px-6">
+    <div className="sticky bottom-0 -mx-4 -mb-4 mt-2 flex flex-col gap-2 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
       {editing ? <p className={hintClass}>Salve ou descarte a edição em andamento antes de usar as ações do episódio.</p> : null}
       {help.map((h, i) => (
         <p key={i} className={hintClass} id={i === 0 ? "ep-action-help" : undefined}>
@@ -790,11 +790,11 @@ function ActionBar({
 
 function OutlineView({ outline, series }: { outline: EpisodeOutline; series: SeriesDetail }) {
   return (
-    <div className="flex flex-col gap-2 text-sm text-slate-800 dark:text-slate-100">
+    <div className="flex flex-col gap-2 text-sm text-fg">
       {outline.summary ? <p>{outline.summary}</p> : null}
       {outline.key_events && outline.key_events.length > 0 ? (
         <div>
-          <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Eventos-chave</p>
+          <p className="text-xs font-semibold uppercase text-fg-subtle">Eventos-chave</p>
           <ul className="list-inside list-disc">
             {outline.key_events.map((e, i) => (
               <li key={i}>{e}</li>
@@ -804,7 +804,7 @@ function OutlineView({ outline, series }: { outline: EpisodeOutline; series: Ser
       ) : null}
       {outline.planned_state_changes && outline.planned_state_changes.length > 0 ? (
         <div>
-          <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Mudanças planejadas</p>
+          <p className="text-xs font-semibold uppercase text-fg-subtle">Mudanças planejadas</p>
           <ul className="list-inside list-disc">
             {outline.planned_state_changes.map((c, i) => (
               <li key={i}>
@@ -827,10 +827,10 @@ function OutlineView({ outline, series }: { outline: EpisodeOutline; series: Ser
 function MediaJobsTable({ jobs, generating }: { jobs: MediaJob[]; generating: boolean }) {
   const done = jobs.filter((j) => j.status === "succeeded").length;
   const sorted = useMemo(() => [...jobs].sort((a, b) => (a.scene_index ?? -1) - (b.scene_index ?? -1)), [jobs]);
-  if (jobs.length === 0) return <p className="text-sm text-slate-600 dark:text-slate-300">Nenhum job de mídia ainda.</p>;
+  if (jobs.length === 0) return <p className="text-sm text-fg-muted">Nenhum job de mídia ainda.</p>;
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-slate-700 dark:text-slate-200">
+      <p className="text-xs text-fg-muted">
         {done} de {jobs.length} prontos
       </p>
       {generating ? <ProgressMeter value={done} max={jobs.length} label="Progresso dos jobs de mídia" /> : null}
@@ -838,7 +838,7 @@ function MediaJobsTable({ jobs, generating }: { jobs: MediaJob[]; generating: bo
         <table className="min-w-full text-xs">
           <caption className="sr-only">Jobs de geração de mídia do episódio</caption>
           <thead>
-            <tr className="text-left uppercase text-slate-500 dark:text-slate-400">
+            <tr className="text-left uppercase text-fg-subtle">
               {["Tipo", "Provedor", "Status", "Tent.", "Duração", "Custo", "Erro"].map((h) => (
                 <th key={h} scope="col" className="py-1 pr-3">
                   {h}
@@ -846,27 +846,27 @@ function MediaJobsTable({ jobs, generating }: { jobs: MediaJob[]; generating: bo
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+          <tbody className="divide-y divide-border">
             {sorted.map((j) => (
               <tr key={j.id} className="align-top">
-                <td className="py-1 pr-3 text-slate-900 dark:text-slate-100">
+                <td className="py-1 pr-3 text-fg">
                   {MEDIA_JOB_KIND_LABELS[j.kind] ?? j.kind}
                   {j.scene_index != null ? ` · cena ${j.scene_index + 1}` : ""}
                 </td>
-                <td className="py-1 pr-3 text-slate-700 dark:text-slate-200">{j.provider}</td>
+                <td className="py-1 pr-3 text-fg-muted">{j.provider}</td>
                 <td className="py-1 pr-3">
                   <MediaJobStatusBadge status={j.status} />
                 </td>
-                <td className="py-1 pr-3 text-slate-700 dark:text-slate-200">{j.attempts}</td>
-                <td className="whitespace-nowrap py-1 pr-3 text-slate-700 dark:text-slate-200">{j.duration_s != null ? `${j.duration_s} s` : "—"}</td>
-                <td className="whitespace-nowrap py-1 pr-3 text-slate-700 dark:text-slate-200">
+                <td className="py-1 pr-3 text-fg-muted">{j.attempts}</td>
+                <td className="whitespace-nowrap py-1 pr-3 text-fg-muted">{j.duration_s != null ? `${j.duration_s} s` : "—"}</td>
+                <td className="whitespace-nowrap py-1 pr-3 text-fg-muted">
                   {j.cost_usd_actual != null
                     ? j.cost_usd_estimated != null
                       ? `${formatUsd(j.cost_usd_estimated)} → ${formatUsd(j.cost_usd_actual)}`
                       : formatUsd(j.cost_usd_actual)
                     : formatUsd(j.cost_usd_estimated)}
                 </td>
-                <td className="py-1 text-red-700 dark:text-red-300">
+                <td className="py-1 text-danger">
                   {j.error ? (
                     <details role={j.status === "failed" ? "alert" : undefined}>
                       <summary className="max-w-[16rem] cursor-pointer truncate">{jobErrorText(j.error)}</summary>

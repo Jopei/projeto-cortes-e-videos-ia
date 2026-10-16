@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
+import { Icon } from "@/components/ui/Icon";
 import { login, sanitizeNextPath } from "@/lib/auth";
 
 function errorMessageFor(err: unknown): string {
@@ -46,22 +47,25 @@ export function LoginForm() {
     <form
       onSubmit={handleSubmit}
       aria-labelledby={`${formId}-heading`}
-      className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-950"
+      className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-border bg-surface p-6 shadow-pop sm:p-8"
     >
-      <div className="flex flex-col gap-1 text-center">
+      <div className="flex flex-col items-center gap-1 text-center">
+        <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-white">
+          <Icon name="scissors" size={22} />
+        </span>
         <h1
           id={`${formId}-heading`}
-          className="text-lg font-semibold text-slate-900 dark:text-slate-50"
+          className="text-xl font-semibold tracking-tight text-fg"
         >
           Projetos Cortes
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Entre para acessar o painel.</p>
+        <p className="text-sm text-fg-subtle">Cortes verticais, direitos em dia. Entre para acessar o painel.</p>
       </div>
 
       {error ? (
         <div
           role="alert"
-          className="rounded-md border border-red-400 bg-red-50 p-3 text-sm text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200"
+          className="rounded-xl border border-danger/40 bg-danger-soft p-3 text-sm text-fg"
         >
           {error}
         </div>
@@ -70,7 +74,7 @@ export function LoginForm() {
       <div className="flex flex-col gap-1">
         <label
           htmlFor={`${formId}-username`}
-          className="text-sm font-medium text-slate-700 dark:text-slate-200"
+          className="text-sm font-medium text-fg"
         >
           Usuário
         </label>
@@ -90,7 +94,7 @@ export function LoginForm() {
       <div className="flex flex-col gap-1">
         <label
           htmlFor={`${formId}-password`}
-          className="text-sm font-medium text-slate-700 dark:text-slate-200"
+          className="text-sm font-medium text-fg"
         >
           Senha
         </label>
@@ -109,7 +113,7 @@ export function LoginForm() {
             type="button"
             onClick={() => setShowPassword((show) => !show)}
             aria-pressed={showPassword}
-            className="absolute inset-y-0 right-0 flex items-center px-3 text-xs font-medium text-indigo-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-indigo-400"
+            className="focus-ring absolute inset-y-0 right-0 flex items-center rounded-lg px-3 text-sm font-medium text-primary-text hover:underline"
           >
             {showPassword ? "Ocultar" : "Mostrar"}
             <span className="sr-only"> senha</span>
@@ -120,7 +124,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="mt-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn btn-primary btn-lg mt-2"
       >
         {submitting ? "Entrando…" : "Entrar"}
       </button>
@@ -129,4 +133,4 @@ export function LoginForm() {
 }
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50";
+  "field-control w-full";

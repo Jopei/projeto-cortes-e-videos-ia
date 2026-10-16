@@ -62,7 +62,7 @@ function ProviderSelect({
           {user?.is_admin ? (
             <>
               Alguns provedores não estão configurados.{" "}
-              <Link href="/cortes/contas" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link href="/cortes/contas" className="font-medium text-primary-text hover:underline">
                 Configurar chave
               </Link>
             </>
@@ -247,20 +247,20 @@ function VoicePicker({
       ) : voices && voices.length === 0 ? (
         <p className={hintClass}>Nenhuma voz em português disponível para este provedor.</p>
       ) : (
-        <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border border-slate-200 p-1 dark:border-slate-700">
+        <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-lg border border-border p-1">
           {(voices ?? []).map((v) => (
-            <li key={v.id} className="flex items-center justify-between gap-2 rounded px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-900">
-              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm text-slate-800 dark:text-slate-100">
+            <li key={v.id} className="flex items-center justify-between gap-2 rounded px-2 py-1.5 hover:bg-surface-2">
+              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm text-fg">
                 <input type="radio" name="wizard-voice" value={v.id} checked={value === v.id} onChange={() => onChange(v.id)} className="h-4 w-4" />
                 <span className="truncate">{v.name}</span>
-                {v.gender ? <span className="text-xs text-slate-500 dark:text-slate-400">{v.gender}</span> : null}
+                {v.gender ? <span className="text-xs text-fg-subtle">{v.gender}</span> : null}
               </label>
               <button
                 type="button"
                 disabled={!v.preview_url}
                 onClick={() => togglePreview(v)}
                 aria-label={`${playing === v.id ? "Parar" : "Ouvir"} voz ${v.name}`}
-                className="shrink-0 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="btn btn-secondary btn-sm shrink-0"
               >
                 {!v.preview_url ? "Sem prévia" : playing === v.id ? "Parar" : "Ouvir"}
               </button>
@@ -269,7 +269,7 @@ function VoicePicker({
         </ul>
       )}
       {error ? (
-        <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="text-xs text-danger">
           {error}
         </p>
       ) : null}

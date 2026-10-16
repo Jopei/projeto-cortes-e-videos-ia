@@ -14,6 +14,7 @@ import {
   type AnalysisJob,
   type AnalysisJobStatus,
 } from "@/lib/jobs";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { JobStatusBadge } from "@/components/ui/StatusBadges";
@@ -84,14 +85,14 @@ export function JobsManager() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor="job-status-filter" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="job-status-filter" className="text-sm font-medium text-fg-muted">
           Status
         </label>
         <select
           id="job-status-filter"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as AnalysisJobStatus | "")}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-50"
+          className="field-control"
         >
           {STATUS_FILTERS.map((s) => (
             <option key={s || "all"} value={s}>
@@ -105,29 +106,31 @@ export function JobsManager() {
         {loading ? (
           <SkeletonList rows={4} />
         ) : error ? (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="text-sm text-danger">
             {error}
           </p>
         ) : jobs.length === 0 ? (
           <EmptyState
+            icon="activity"
             title="Nenhum job encontrado"
             description="Analise um vídeo enviado na tela de Upload para criar um job."
+            action={<Button href="/cortes/upload">Ir para Upload</Button>}
           />
         ) : (
           <ul className="flex flex-col gap-3">
             {jobs.map((job) => (
               <li
                 key={job.id}
-                className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950"
+                className="flex flex-col gap-2 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <JobStatusBadge status={job.status} />
-                    <span className="text-sm text-slate-600 dark:text-slate-300">
+                    <span className="text-sm text-fg-muted">
                       Preset: {PRESET_LABELS[job.preset]}
                     </span>
                     {showOwner ? (
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                      <span className="text-xs text-fg-subtle">
                         Dono: {ownerLabel(job.owner_id)}
                       </span>
                     ) : null}
@@ -135,7 +138,7 @@ export function JobsManager() {
                   <div className="flex items-center gap-3 text-sm">
                     <Link
                       href={`/cortes/revisao?job_id=${job.id}`}
-                      className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                      className="font-medium text-primary-text hover:underline"
                     >
                       Ver cortes
                     </Link>
@@ -144,7 +147,7 @@ export function JobsManager() {
                         type="button"
                         onClick={() => handleCancel(job)}
                         disabled={cancelingId === job.id}
-                        className="font-medium text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400"
+                        className="font-medium text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {cancelingId === job.id ? "Cancelando…" : "Cancelar"}
                       </button>
@@ -153,7 +156,7 @@ export function JobsManager() {
                 </div>
 
                 {job.stage ? (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Estágio: {job.stage}</p>
+                  <p className="text-xs text-fg-subtle">Estágio: {job.stage}</p>
                 ) : null}
 
                 <div
@@ -162,23 +165,23 @@ export function JobsManager() {
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-label={`Progresso do job de ${job.media_asset_id}`}
-                  className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+                  className="h-2 w-full overflow-hidden rounded-full bg-border"
                 >
                   <div
                     className={`h-full rounded-full transition-all ${
-                      job.status === "failed" ? "bg-red-500" : "bg-indigo-600"
+                      job.status === "failed" ? "bg-red-500" : "bg-primary"
                     }`}
                     style={{ width: `${job.progress}%` }}
                   />
                 </div>
 
                 {job.error ? (
-                  <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+                  <p role="alert" className="text-xs text-danger">
                     {job.error}
                   </p>
                 ) : null}
 
-                <p className="text-xs text-slate-400 dark:text-slate-500">
+                <p className="text-xs text-fg-subtle">
                   Criado em {new Date(job.created_at).toLocaleString("pt-BR")}
                 </p>
               </li>

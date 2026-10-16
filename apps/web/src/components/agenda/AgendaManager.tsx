@@ -8,6 +8,7 @@ import { PLATFORM_LABELS, type Channel } from "@/lib/channels";
 import { listPublications, type Publication } from "@/lib/publications";
 import { ChannelColorDot } from "@/components/channels/ChannelPicker";
 import { Dialog } from "@/components/ui/Dialog";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { PublicationStatusBadge } from "@/components/ui/StatusBadges";
@@ -108,31 +109,31 @@ export function AgendaManager() {
           <button
             type="button"
             onClick={() => setWeekStart((prev) => addDays(prev, -7))}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="btn btn-secondary btn-sm"
           >
             ← Semana anterior
           </button>
           <button
             type="button"
             onClick={() => setWeekStart(startOfWeek(new Date()))}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="btn btn-secondary btn-sm"
           >
             Hoje
           </button>
           <button
             type="button"
             onClick={() => setWeekStart((prev) => addDays(prev, 7))}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="btn btn-secondary btn-sm"
           >
             Próxima semana →
           </button>
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-fg-subtle">
           {weekDays[0].toLocaleDateString("pt-BR")} – {weekDays[6].toLocaleDateString("pt-BR")}
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
+      <div className="flex flex-wrap gap-3 text-xs text-fg-subtle">
         {channels.map((c) => (
           <span key={c.id} className="flex items-center gap-1">
             <ChannelColorDot color={c.color} /> {c.name}
@@ -143,25 +144,27 @@ export function AgendaManager() {
       {loading ? (
         <SkeletonList rows={4} />
       ) : error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : items.length === 0 ? (
         <EmptyState
+          icon="calendar"
           title="Nenhuma publicação agendada"
           description="Publique cortes aprovados na tela de Revisão para vê-los aqui."
+          action={<Button href="/cortes/revisao">Ir para Revisão</Button>}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-7">
           {weekDays.map((day) => {
             const dayItems = itemsByDay.get(day.toDateString()) ?? [];
             return (
-              <div key={day.toISOString()} className="flex flex-col gap-2 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
-                <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+              <div key={day.toISOString()} className="flex flex-col gap-2 rounded-lg border border-border p-2">
+                <p className="text-xs font-semibold uppercase text-fg-subtle">
                   {WEEKDAY_FULL[(day.getDay() + 6) % 7]} · {day.toLocaleDateString("pt-BR")}
                 </p>
                 {dayItems.length === 0 ? (
-                  <p className="text-xs text-slate-400 dark:text-slate-600">—</p>
+                  <p className="text-xs text-fg-subtle">—</p>
                 ) : (
                   <ul className="flex flex-col gap-1.5">
                     {dayItems.map((item) => {
@@ -171,13 +174,13 @@ export function AgendaManager() {
                           <button
                             type="button"
                             onClick={() => setDetailItem(item)}
-                            className="flex w-full items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-left text-xs hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:hover:bg-slate-900"
+                            className="flex w-full items-center gap-1.5 rounded-lg border border-border px-2 py-1 text-left text-xs hover:bg-surface-2 focus-ring"
                           >
                             <ChannelColorDot color={item.channel?.color ?? null} />
                             <span className="font-medium">
                               {when.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                             </span>
-                            <span className="truncate text-slate-600 dark:text-slate-300">
+                            <span className="truncate text-fg-muted">
                               {PLATFORM_LABELS[item.platform]}
                             </span>
                           </button>
@@ -195,26 +198,26 @@ export function AgendaManager() {
       <Dialog open={detailItem !== null} onClose={() => setDetailItem(null)} title="Detalhe da publicação">
         {detailItem ? (
           <dl className="grid grid-cols-2 gap-3 text-sm">
-            <dt className="font-medium text-slate-500 dark:text-slate-400">Canal</dt>
+            <dt className="font-medium text-fg-subtle">Canal</dt>
             <dd>{detailItem.channel?.name ?? "—"}</dd>
-            <dt className="font-medium text-slate-500 dark:text-slate-400">Plataforma</dt>
+            <dt className="font-medium text-fg-subtle">Plataforma</dt>
             <dd>{PLATFORM_LABELS[detailItem.platform]}</dd>
-            <dt className="font-medium text-slate-500 dark:text-slate-400">Status</dt>
+            <dt className="font-medium text-fg-subtle">Status</dt>
             <dd>
               <span className="flex flex-wrap items-center gap-1.5">
                 <PublicationStatusBadge status={detailItem.status} />
                 {detailItem.synthetic_media ? <AiBadge /> : null}
               </span>
             </dd>
-            <dt className="font-medium text-slate-500 dark:text-slate-400">Agendado para</dt>
+            <dt className="font-medium text-fg-subtle">Agendado para</dt>
             <dd>{detailItem.scheduled_at ? new Date(detailItem.scheduled_at).toLocaleString("pt-BR") : "—"}</dd>
-            <dt className="font-medium text-slate-500 dark:text-slate-400">Publicado em</dt>
+            <dt className="font-medium text-fg-subtle">Publicado em</dt>
             <dd>{detailItem.published_at ? new Date(detailItem.published_at).toLocaleString("pt-BR") : "—"}</dd>
             {detailItem.external_url ? (
               <>
-                <dt className="font-medium text-slate-500 dark:text-slate-400">Link</dt>
+                <dt className="font-medium text-fg-subtle">Link</dt>
                 <dd>
-                  <a href={detailItem.external_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">
+                  <a href={detailItem.external_url} target="_blank" rel="noreferrer" className="text-primary-text hover:underline">
                     Abrir
                   </a>
                 </dd>

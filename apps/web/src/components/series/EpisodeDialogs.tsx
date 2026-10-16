@@ -17,7 +17,7 @@ function ScopePicker({ value, onChange, mediaCost, name }: { value: RegenerateSc
     <fieldset className="flex flex-col gap-2">
       <legend className={labelClass}>O que regenerar</legend>
       {SCOPES.map((s) => (
-        <label key={s.value} className="flex items-start gap-2 text-sm text-slate-800 dark:text-slate-100">
+        <label key={s.value} className="flex items-start gap-2 text-sm text-fg">
           <input type="radio" name={name} checked={value === s.value} onChange={() => onChange(s.value)} className="mt-0.5 h-4 w-4" />
           <span>
             {s.label}
@@ -63,10 +63,10 @@ export function RegenerateDialog({
       <div className="flex flex-col gap-4">
         {error ? <Notice tone="danger">{error}</Notice> : null}
         <ScopePicker value={scope} onChange={setScope} mediaCost={mediaCost} name="regen-scope" />
-        <Field id="regen-instructions" label="Instruções (opcional)" counter={<span className="text-xs text-slate-500">{instructions.length}/500</span>}>
+        <Field id="regen-instructions" label="Instruções (opcional)" counter={<span className="text-xs text-fg-subtle">{instructions.length}/500</span>}>
           <textarea id="regen-instructions" rows={3} maxLength={500} value={instructions} onChange={(e) => setInstructions(e.target.value)} className={inputClass} />
         </Field>
-        <p className="text-sm text-slate-700 dark:text-slate-200">
+        <p className="text-sm text-fg-muted">
           Regenerações usadas: {used} de {limit}
         </p>
         {atLimit ? (
@@ -107,11 +107,11 @@ export function RejectDialog({
     <Dialog open onClose={onClose} title="Rejeitar episódio">
       <div className="flex flex-col gap-4">
         {error ? <Notice tone="danger">{error}</Notice> : null}
-        <p className="text-sm text-slate-700 dark:text-slate-200">Rejeitar não publica o episódio e libera a agenda +1 dia se passar do horário.</p>
+        <p className="text-sm text-fg-muted">Rejeitar não publica o episódio e libera a agenda +1 dia se passar do horário.</p>
         <Field id="reject-instructions" label="Instruções (opcional)" hint="O que não ficou bom? A IA usa isso na próxima tentativa.">
           <textarea id="reject-instructions" rows={3} maxLength={500} value={instructions} onChange={(e) => setInstructions(e.target.value)} className={inputClass} aria-describedby="reject-instructions-hint" />
         </Field>
-        <label className="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-100">
+        <label className="flex items-center gap-2 text-sm text-fg">
           <input type="checkbox" checked={regenerate} onChange={(e) => setRegenerate(e.target.checked)} className="h-4 w-4" />
           Regenerar em seguida
         </label>
@@ -151,7 +151,7 @@ export function UnapproveDialog({
     <Dialog open onClose={onClose} title={`Desaprovar Ep. ${number}`}>
       <div className="flex flex-col gap-4">
         {error ? <Notice tone="danger">{error}</Notice> : null}
-        <p className="text-sm text-slate-700 dark:text-slate-200">
+        <p className="text-sm text-fg-muted">
           O episódio volta para revisão, as publicações agendadas serão canceladas, os eventos de personagem voltam a propostos e os episódios seguintes ficam
           Desatualizados.
         </p>

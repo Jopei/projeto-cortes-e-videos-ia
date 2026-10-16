@@ -285,12 +285,12 @@ export function SeriesWizard() {
     <div className="flex flex-col gap-4">
       <WizardStepper step={step} />
 
-      <section aria-labelledby="wizard-step-heading" className="flex flex-col gap-5 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950 sm:p-6">
+      <section aria-labelledby="wizard-step-heading" className="flex flex-col gap-5 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4 sm:p-6">
         <h2
           id="wizard-step-heading"
           ref={headingRef}
           tabIndex={-1}
-          className="text-lg font-semibold text-slate-900 outline-none dark:text-slate-50"
+          className="text-lg font-semibold text-fg outline-none"
         >
           Passo {step}: {STEP_TITLES[step - 1]}
         </h2>
@@ -311,7 +311,7 @@ export function SeriesWizard() {
         ) : null}
 
         {Object.keys(errors).length > 0 && step < 5 ? (
-          <div role="alert" className="rounded-md border border-red-400 bg-red-50 p-2 text-sm text-red-900 dark:border-red-500 dark:bg-red-950/40 dark:text-red-200">
+          <div role="alert" className="border-danger/40 bg-danger-soft text-fg rounded-lg border p-2 text-sm">
             <p className="font-medium">Corrija os campos abaixo para continuar:</p>
             <ul className="list-inside list-disc">
               {Object.entries(errors).map(([k, msg]) => (
@@ -369,7 +369,7 @@ export function SeriesWizard() {
         ) : null}
       </section>
 
-      <div className="sticky bottom-0 -mx-1 flex items-center justify-between gap-3 border-t border-slate-200 bg-white/95 px-1 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+      <div className="sticky bottom-0 -mx-1 flex items-center justify-between gap-3 border-t border-border bg-surface/95 px-1 py-3 backdrop-blur">
         <button
           type="button"
           onClick={() => {
@@ -411,7 +411,7 @@ export function SeriesWizard() {
 function WizardStepper({ step }: { step: number }) {
   return (
     <>
-      <p className="text-sm font-medium text-slate-700 dark:text-slate-200 md:hidden">
+      <p className="text-sm font-medium text-fg-muted md:hidden">
         Passo {step} de 5 — {STEP_TITLES[step - 1]}
       </p>
       <ol className="hidden items-center gap-2 md:flex" aria-label="Passos">
@@ -423,16 +423,16 @@ function WizardStepper({ step }: { step: number }) {
               <span
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                   current
-                    ? "bg-indigo-600 text-white"
+                    ? "bg-primary text-white"
                     : n < step
                       ? "bg-emerald-600 text-white"
-                      : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                      : "bg-border text-fg-muted"
                 }`}
               >
                 <span aria-hidden="true">{n < step ? "✓" : n}</span>
                 <span className="sr-only">{n < step ? "Concluído: passo " : "Passo "}{n}</span>
               </span>
-              <span className={`text-xs ${current ? "font-semibold text-slate-900 dark:text-slate-50" : "text-slate-600 dark:text-slate-300"}`}>{title}</span>
+              <span className={`text-xs ${current ? "font-semibold text-fg" : "text-fg-muted"}`}>{title}</span>
             </li>
           );
         })}
@@ -483,7 +483,7 @@ function StepIdea({
           error={errors.premise}
           hint="A premissa não pode ser alterada depois. Escreva o ponto de partida, o conflito e o tom. Os personagens e o desfecho a IA cria."
           counter={
-            <span className={`text-xs ${len > MAX_PREMISE_LENGTH ? "text-red-600" : "text-slate-500 dark:text-slate-400"}`}>
+            <span className={`text-xs ${len > MAX_PREMISE_LENGTH ? "text-red-600" : "text-fg-subtle"}`}>
               {len}/{MAX_PREMISE_LENGTH}
             </span>
           }
@@ -569,7 +569,7 @@ function StepIdea({
           channelPlatforms.length > 0 ? (
             <ul className="flex flex-wrap gap-1.5" aria-label="Plataformas do canal">
               {channelPlatforms.map((p) => (
-                <li key={p} className="rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                <li key={p} className="rounded-full border border-border-strong bg-surface-2 px-2.5 py-0.5 text-xs text-fg-muted">
                   {p}
                 </li>
               ))}
@@ -628,7 +628,7 @@ function StepPublish({
       <fieldset className="flex flex-col gap-2">
         <legend className={labelClass}>Antecedência</legend>
         {([1, 2] as const).map((d) => (
-          <label key={d} className="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-100">
+          <label key={d} className="flex items-center gap-2 text-sm text-fg">
             <input type="radio" name="wizard-lead" checked={state.leadDays === d} onChange={() => onChange({ leadDays: d })} className="h-4 w-4" />
             {d === 1 ? "1 dia" : "2 dias (recomendado)"}
           </label>
@@ -642,7 +642,7 @@ function StepPublish({
         <legend className={labelClass}>Privacidade</legend>
         <div className="flex flex-wrap gap-4">
           {PRIVACY_OPTIONS.map((o) => (
-            <label key={o.value} className="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-100">
+            <label key={o.value} className="flex items-center gap-2 text-sm text-fg">
               <input type="radio" name="wizard-privacy" checked={state.privacy === o.value} onChange={() => onChange({ privacy: o.value })} className="h-4 w-4" />
               {o.label}
             </label>
@@ -651,7 +651,7 @@ function StepPublish({
       </fieldset>
 
       <div className="flex flex-col gap-2">
-        <label className="flex items-start gap-2 text-sm text-slate-800 dark:text-slate-100">
+        <label className="flex items-start gap-2 text-sm text-fg">
           <input
             type="checkbox"
             checked={state.requireScriptApproval}
@@ -687,7 +687,7 @@ function StepPublish({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="flex items-start gap-2 text-sm text-slate-800 dark:text-slate-100">
+        <label className="flex items-start gap-2 text-sm text-fg">
           <input type="checkbox" checked={state.monetization} onChange={(e) => onChange({ monetization: e.target.checked })} className="mt-0.5 h-4 w-4" />
           <span>Monetização permitida</span>
         </label>
@@ -740,11 +740,11 @@ function StepReview({
   ];
   return (
     <div className="flex flex-col gap-5">
-      <dl className="flex flex-col divide-y divide-slate-200 text-sm dark:divide-slate-700">
+      <dl className="flex flex-col divide-y divide-border text-sm">
         {rows.map((r) => (
           <div key={r.label} className="flex flex-wrap items-start justify-between gap-2 py-2">
-            <dt className="w-44 shrink-0 text-slate-500 dark:text-slate-400">{r.label}</dt>
-            <dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-slate-900 dark:text-slate-50">{r.value}</dd>
+            <dt className="w-44 shrink-0 text-fg-subtle">{r.label}</dt>
+            <dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-fg">{r.value}</dd>
             <button type="button" onClick={() => goTo(r.step)} className={`${linkClass} text-xs`} aria-label={`Editar ${r.label}`}>
               Editar
             </button>
@@ -752,7 +752,7 @@ function StepReview({
         ))}
       </dl>
 
-      <div className="rounded-lg border-2 border-indigo-400 bg-indigo-50 p-4 text-sm text-indigo-900 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-100">
+      <div className="border-info/40 bg-info-soft text-fg rounded-lg border-2 p-4 text-sm">
         {estimate ? (
           <p>
             Estimativa da temporada: <strong>{formatUsd(estimate.season_usd)}</strong> ({formatUsd(estimate.per_episode_usd)} por episódio). Você só gasta
@@ -764,7 +764,7 @@ function StepReview({
       </div>
 
       <div data-field="originality_attestation" className="flex flex-col gap-2">
-        <label className="flex items-start gap-3 rounded-md border border-slate-300 p-3 text-sm text-slate-800 dark:border-slate-600 dark:text-slate-100">
+        <label className="flex items-start gap-3 rounded-lg border border-border-strong p-3 text-sm text-fg">
           <input
             type="checkbox"
             checked={state.attested}
@@ -778,7 +778,7 @@ function StepReview({
           A IA recusa premissas que copiem obras protegidas. Cada episódio ainda passa pela sua aprovação antes de ir ao ar.
         </p>
         {error ? (
-          <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+          <p role="alert" className="text-xs text-danger">
             {error}
           </p>
         ) : null}
