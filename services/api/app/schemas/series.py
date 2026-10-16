@@ -31,10 +31,16 @@ class ProviderRead(BaseModel):
     est_cost_unit: Literal["per_second", "per_image", "per_1k_chars"]
 
 
+class LlmStatusRead(BaseModel):
+    fake: bool  # fake_llm answers (STORY_FAKE_LLM_ENABLED and no Anthropic key)
+    configured: bool  # a real Anthropic key exists, or fake mode is active
+
+
 class ProvidersRead(BaseModel):
     video: list[ProviderRead]
     image: list[ProviderRead]
     tts: list[ProviderRead]
+    llm: LlmStatusRead
 
 
 class SeriesEstimateRequest(BaseModel):

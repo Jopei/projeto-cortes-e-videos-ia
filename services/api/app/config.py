@@ -109,6 +109,9 @@ class Settings(BaseSettings):
     story_writer_model: str = "claude-sonnet-5"
     story_fake_providers_enabled: bool = False
     """Expose the `fake_*` media providers (cost 0). Dev/tests only."""
+    story_fake_llm_enabled: bool = False
+    """With no Anthropic key, `llm.call_structured` answers with deterministic
+    fake tool results (provider `fake_llm`, cost 0). Dev/tests only."""
     story_max_validation_attempts: int = 3
     story_worker_concurrency: int = 4
     genmedia_max_inflight_default: int = 2

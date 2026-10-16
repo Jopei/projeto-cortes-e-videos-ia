@@ -52,7 +52,7 @@ def _decide_episode_clip(db: Session, clip: Clip, decision: str, scope: Scope) -
     episode = db.get(StoryEpisode, clip.episode_id)
     series = db.get(StorySeries, episode.series_id) if episode is not None else None
     if episode is None or series is None:
-        raise HTTPException(status_code=404, detail="Episode not found")
+        raise HTTPException(status_code=404, detail="Episódio não encontrado")
     ctx = lifecycle.Ctx.from_scope(scope)
     if decision == "approved":
         lifecycle.approve_episode(db, ctx, series, episode)

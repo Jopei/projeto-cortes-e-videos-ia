@@ -102,15 +102,31 @@ def get_scope(
     return Scope(actor=current_user, owner_id=target_id, create_owner_id=target_id)
 
 
+_NOT_FOUND_LABELS = {
+    "StorySeries": "Série não encontrada",
+    "StoryEpisode": "Episódio não encontrado",
+    "Clip": "Clip não encontrado",
+    "Channel": "Canal não encontrado",
+    "Source": "Fonte não encontrada",
+    "MediaAsset": "Mídia não encontrada",
+    "AnalysisJob": "Job não encontrado",
+}
+
+
+def _not_found_detail(name: str) -> str:
+    # Never the bare "Not Found": the frontend treats that as "route does not exist".
+    return _NOT_FOUND_LABELS.get(name, "Recurso não encontrado")
+
+
 def get_owned_or_404(db: Session, model: type[ModelT], obj_id: uuid.UUID, scope: Scope) -> ModelT:
     """Fetch `model` by primary key, scoped to `scope`. Raises a plain 404
     (never 403) both when the row doesn't exist and when it belongs to a
     different owner — a 403 would leak that the id is valid."""
     obj = db.get(model, obj_id)
     if obj is None:
-        raise HTTPException(status_code=404, detail=f"{model.__name__} not found")
+        raise HTTPException(status_code=404, detail=_not_found_detail(model.__name__))
     if scope.owner_id is not None and getattr(obj, "owner_id", None) != scope.owner_id:
-        raise HTTPException(status_code=404, detail=f"{model.__name__} not found")
+        raise HTTPException(status_code=404, detail=_not_found_detail(model.__name__))
     return obj
 
 
@@ -119,9 +135,9 @@ def check_same_owner_or_404(obj: object | None, scope: Scope, *, label: str = "R
     other means (e.g. resolved via a different lookup) — raises 404 if it
     doesn't belong to `scope`'s effective owner."""
     if obj is None:
-        raise HTTPException(status_code=404, detail=f"{label} not found")
+        raise HTTPException(status_code=404, detail="Recurso não encontrado")
     if scope.owner_id is not None and getattr(obj, "owner_id", None) != scope.owner_id:
-        raise HTTPException(status_code=404, detail=f"{label} not found")
+        raise HTTPException(status_code=404, detail="Recurso não encontrado")
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:

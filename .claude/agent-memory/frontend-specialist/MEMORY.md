@@ -1,0 +1,1 @@
+- [Web verification](web-verification.md) — comandos de lint/build, login por cookie sem expor senha, portas, convenção "Not Found"

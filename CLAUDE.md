@@ -635,6 +635,37 @@ Plano: `docs/series-ia-plano.md`. Base compartilhada por API e worker:
   Falha de segurança do provedor ou `narration_too_long` re-roteiriza UMA vez (`validation.media_retries`), depois `needs_attention`.
 - Testes: `tests/test_story_*.py`; os que usam ffmpeg são `-m integration` (rodar na imagem `worker`).
 
+## Séries IA: integração API <-> worker (etapa 2d)
+
+- **Transições antes de enfileirar**: toda rota que enfileira move o episódio
+  antes do `send_task` (`approve-script`/regenerate mídia -> `generating_media`,
+  regenerate/reject script -> `scripting`, `PUT script` -> `validating`); o tick
+  faz `planned -> scripting`. Teste de ponta a ponta eager pela API:
+  `tests/test_story_integration.py` (assembly de ffmpeg stubado; o real é
+  `-m integration`).
+- **Eventos de personagem**: uma só implementação,
+  `lifecycle.sync_script_events` (PUT script, `script_episode` com `None` para
+  limpar, `validate_episode`).
+- **Fios narrativos**: `lifecycle.apply_threads`/`revert_threads` na
+  aprovação/desaprovação do episódio atualizam `bible.open_threads`
+  (`threads_opened` entra com `introduced_in`, `threads_closed` recebe
+  `closed_in`); não incrementa `bible_version`.
+- **Regenerar mídia por escopo**: `lifecycle.cancel_media_jobs` marca
+  `canceled` os `story_media_jobs` da revisão atual (`media`/`visual` =
+  imagem+vídeo, `narration` = TTS) antes de enfileirar; o worker reaproveita
+  os demais `succeeded`.
+- **Tick**: episódios `approved` sem slot são retentados por
+  `lifecycle.retry_approved_scheduling` (só se todas as publicações falharam
+  por falta de slot; bloqueio do rights gate não é retentado).
+- **404**: `get_owned_or_404` e rotas de série devolvem `detail` em PT
+  ("Série não encontrada", "Recurso não encontrado"...), nunca o `"Not Found"`
+  seco do FastAPI (o frontend usa isso para "rota inexistente").
+- **IA de teste**: `STORY_FAKE_LLM_ENABLED` (default false) + sem chave
+  Anthropic -> `llm.call_structured` devolve respostas determinísticas
+  (`app/worker/story/fake_llm.py`; provider `fake_llm`, custo 0). `GET
+  /api/series/providers` ganhou `llm: {fake, configured}`. Dev local apenas.
+- `SeriesRead.cost_usd_total` e todo custo nas respostas são `float`.
+
 ## Testes
 
 `services/api/tests/`: `conftest.py` cria as tabelas `sources`/`media_assets`

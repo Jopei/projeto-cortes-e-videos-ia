@@ -40,6 +40,8 @@ from app.models.story import (
     CharacterRole,
     CharacterStatus,
     EpisodeStatus as E,
+    MediaJobKind,
+    MediaJobStatus,
     SeriesStatus as S,
     StoryCharacter,
     StoryCharacterEvent,
@@ -233,7 +235,7 @@ def get_episode(db: Session, series: StorySeries, number: int) -> StoryEpisode:
         .one_or_none()
     )
     if episode is None:
-        raise HTTPException(status_code=404, detail="Episode not found")
+        raise HTTPException(status_code=404, detail="Episódio não encontrado")
     return episode
 
 
@@ -762,6 +764,7 @@ def regenerate(
         mark_following_stale(db, series, episode.number)
         outbox.add(TASK_SCRIPT_EPISODE, str(episode.id))
     else:
+        cancel_media_jobs(db, episode, scope)
         move(db, episode, E.GENERATING_MEDIA, current, **fields)
         outbox.add(TASK_GENERATE_MEDIA, str(episode.id), "visual" if scope == "media" else "narration")
     audit(
@@ -769,6 +772,27 @@ def regenerate(
         number=episode.number, scope=scope, has_instructions=bool(instructions), regenerations=episode.regenerations,
     )
     return episode
+
+
+def cancel_media_jobs(db: Session, episode: StoryEpisode, scope: str) -> int:
+    """Mark the current-revision media jobs of the component being redone as
+    `canceled` so the worker regenerates them (it reuses `succeeded` jobs by
+    idempotency key otherwise). `media`/`visual` = images+video, `narration` = tts."""
+    kinds = (MediaJobKind.TTS,) if scope == "narration" else (MediaJobKind.IMAGE, MediaJobKind.VIDEO_CLIP)
+    jobs = (
+        db.query(StoryMediaJob)
+        .filter(
+            StoryMediaJob.episode_id == episode.id,
+            StoryMediaJob.script_revision == episode.script_revision,
+            StoryMediaJob.kind.in_(kinds),
+            StoryMediaJob.status != MediaJobStatus.CANCELED,
+        )
+        .all()
+    )
+    for job in jobs:
+        job.status = MediaJobStatus.CANCELED
+    db.flush()
+    return len(jobs)
 
 
 def reject_episode(
@@ -825,6 +849,79 @@ def schedule_episode_publications(
     )
 
 
+def apply_threads(series: StorySeries, episode: StoryEpisode) -> None:
+    """On approval: open the script's `threads_opened` (with `introduced_in`)
+    and mark `closed_in` on the `threads_closed` in `bible.open_threads`."""
+    script = episode.script or {}
+    bible = dict(series.bible or {})
+    threads = [dict(t) for t in bible.get("open_threads") or []]
+    by_key = {t["key"]: t for t in threads}
+    for opened in script.get("threads_opened") or []:
+        if opened["key"] in by_key:
+            continue
+        thread = {"key": opened["key"], "description": opened["description"], "introduced_in": episode.number,
+                  "planned_resolution_in": None, "closed_in": None}
+        threads.append(thread)
+        by_key[thread["key"]] = thread
+    for key in script.get("threads_closed") or []:
+        thread = by_key.get(key)
+        if thread is not None and not thread.get("closed_in"):
+            thread["closed_in"] = episode.number
+    bible["open_threads"] = threads
+    series.bible = bible
+
+
+def revert_threads(series: StorySeries, episode: StoryEpisode) -> None:
+    """Inverse of `apply_threads` (on unapprove)."""
+    script = episode.script or {}
+    bible = dict(series.bible or {})
+    threads = [dict(t) for t in bible.get("open_threads") or []]
+    opened = {t["key"] for t in script.get("threads_opened") or []}
+    kept = []
+    for thread in threads:
+        # Threads added by apply_threads have no planned resolution (plan threads always do).
+        if thread["key"] in opened and thread.get("introduced_in") == episode.number and thread.get("planned_resolution_in") is None:
+            continue
+        if thread["key"] in (script.get("threads_closed") or []) and thread.get("closed_in") == episode.number:
+            thread["closed_in"] = None
+        kept.append(thread)
+    bible["open_threads"] = kept
+    series.bible = bible
+
+
+def _settle_scheduling(
+    db: Session, ctx: Ctx, series: StorySeries, episode: StoryEpisode, clip: Clip, expected, **extra_fields
+) -> tuple[list[Publication], E]:
+    pubs = schedule_episode_publications(db, ctx, series, episode, clip)
+    ok = [p for p in pubs if p.status in (PublicationStatus.SCHEDULED, PublicationStatus.EXPORTED)]
+    scheduled_times = [p.scheduled_at for p in pubs if p.status == PublicationStatus.SCHEDULED and p.scheduled_at]
+    scheduled_at = min(scheduled_times) if scheduled_times else (target_datetime(series, episode) if ok else None)
+    target = E.SCHEDULED if ok else E.APPROVED
+    if target != episode.status:
+        move(db, episode, target, expected, scheduled_at=scheduled_at, error=None, **extra_fields)
+    return pubs, target
+
+
+def retry_approved_scheduling(db: Session, ctx: Ctx, series: StorySeries, episode: StoryEpisode) -> bool:
+    """Tick helper: an `approved` episode whose publications all failed for lack
+    of a slot gets another attempt. Returns True when it became `scheduled`."""
+    if episode.status != E.APPROVED:
+        return False
+    clip = episode_clip(db, episode)
+    if clip is None or clip.status != ClipStatus.APPROVED:
+        return False
+    statuses = [p.status for p in db.query(Publication).filter(Publication.clip_id == clip.id).all()]
+    if statuses and any(st != PublicationStatus.FAILED for st in statuses):
+        return False  # blocked by the rights gate etc.: retrying would only pile up rows
+    try:
+        _, target = _settle_scheduling(db, ctx, series, episode, clip, E.APPROVED)
+    except HTTPException:
+        return False
+    if target == E.SCHEDULED:
+        audit(db, ctx, "episode.schedule_retry", "episode", episode.id, number=episode.number)
+    return target == E.SCHEDULED
+
+
 def approve_episode(db: Session, ctx: Ctx, series: StorySeries, episode: StoryEpisode) -> StoryEpisode:
     _require_idle(episode)
     _require_status(episode, (E.PENDING_REVIEW,), "O episódio")
@@ -842,9 +939,9 @@ def approve_episode(db: Session, ctx: Ctx, series: StorySeries, episode: StoryEp
 
     clip.status = ClipStatus.APPROVED
     db.flush()
-    pubs = schedule_episode_publications(db, ctx, series, episode, clip)
     apply_events(db, episode)
-
+    apply_threads(series, episode)
+    pubs = schedule_episode_publications(db, ctx, series, episode, clip)
     ok = [p for p in pubs if p.status in (PublicationStatus.SCHEDULED, PublicationStatus.EXPORTED)]
     scheduled_times = [p.scheduled_at for p in pubs if p.status == PublicationStatus.SCHEDULED and p.scheduled_at]
     scheduled_at = min(scheduled_times) if scheduled_times else (target_datetime(series, episode) if ok else None)
@@ -885,6 +982,7 @@ def unapprove_episode(db: Session, ctx: Ctx, series: StorySeries, episode: Story
     if clip is not None:
         clip.status = ClipStatus.PENDING_REVIEW
     revert_events(db, episode)
+    revert_threads(series, episode)
     move(db, episode, E.PENDING_REVIEW, episode.status, approved_at=None, approved_by=None, scheduled_at=None)
     mark_following_stale(db, series, episode.number)
     audit(db, ctx, "episode.unapprove", "episode", episode.id, number=episode.number, canceled_publications=canceled)

@@ -53,6 +53,15 @@ def _is_retryable(exc: Exception) -> bool:
     return False
 
 
+def fake_enabled(api_key: str | None) -> bool:
+    """Fake mode: opt-in setting AND no real Anthropic key."""
+    return bool(get_settings().story_fake_llm_enabled) and not api_key
+
+
+def is_available(api_key: str | None) -> bool:
+    return bool(api_key) or fake_enabled(api_key)
+
+
 def call_structured(
     model: str,
     system: str,
@@ -70,6 +79,11 @@ def call_structured(
     """Returns `(tool_input, usage)`; `usage = {model, input_tokens,
     output_tokens, cost_usd (Decimal)}`. Raises `LLMError` when attempts are
     exhausted or the error is not retryable."""
+    if client is None and fake_enabled(api_key):
+        from app.worker.story.fake_llm import fake_tool_result
+
+        usage = {"model": "fake_llm", "provider": "fake_llm", "input_tokens": 0, "output_tokens": 0, "cost_usd": Decimal("0")}
+        return fake_tool_result(tool_name, messages), usage
     if client is None:
         import anthropic
 

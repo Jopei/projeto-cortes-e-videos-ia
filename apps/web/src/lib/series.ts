@@ -261,19 +261,17 @@ export type Series = {
   monetization_allowed: boolean;
   bible_version: number;
   start_date?: string | null;
-  /** Total spent so far; the contract lists no field for it on SeriesRead, so we accept any of these. */
-  total_cost_usd?: number | null;
-  spent_usd?: number | null;
-  cost_usd?: number | null;
+  /** Total spent so far on this series (LLM + media), in USD. */
+  cost_usd_total: number;
   created_at: string;
   progress: SeriesProgress;
   next_episode: NextEpisode | null;
   estimated_cost: { per_episode_usd: number; season_usd: number } | null;
 };
 
-/** Cost spent so far, tolerating the (unspecified) field name. */
-export function seriesSpent(series: Pick<Series, "total_cost_usd" | "spent_usd" | "cost_usd">): number | null {
-  return series.total_cost_usd ?? series.spent_usd ?? series.cost_usd ?? null;
+/** Cost spent so far on the series. */
+export function seriesSpent(series: Pick<Series, "cost_usd_total">): number | null {
+  return series.cost_usd_total ?? null;
 }
 
 /* ------------------------------------------------------------------ bible */

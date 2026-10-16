@@ -52,6 +52,7 @@ from app.schemas.series import (
     NextEpisode,
     OutlineUpdate,
     ProviderRead,
+    LlmStatusRead,
     ProvidersRead,
     RegenerateRequest,
     RejectRequest,
@@ -70,6 +71,7 @@ from app.schemas.series import (
     UsageEventRead,
     VoiceRead,
 )
+from app.integrations import get_integration_value
 from app.scope import Scope, get_owned_or_404, get_scope
 from app.storage import S3Client, get_s3_client
 from app.story import lifecycle
@@ -95,12 +97,19 @@ def _provider_read(spec: ProviderSpec) -> ProviderRead:
     )
 
 
+def _llm_status() -> LlmStatusRead:
+    key = get_integration_value("anthropic", "api_key")
+    fake = bool(get_settings().story_fake_llm_enabled) and not key
+    return LlmStatusRead(fake=fake, configured=bool(key) or fake)
+
+
 @router.get("/providers", response_model=ProvidersRead)
 def get_providers() -> ProvidersRead:
     return ProvidersRead(
         video=[_provider_read(s) for s in list_providers("video")],
         image=[_provider_read(s) for s in list_providers("image")],
         tts=[_provider_read(s) for s in list_providers("tts")],
+        llm=_llm_status(),
     )
 
 
@@ -312,7 +321,7 @@ def create_series(payload: SeriesCreate, db: Session = Depends(get_db), scope: S
     owner_id = scope.create_owner_id
     channel = db.get(Channel, payload.channel_id)
     if channel is None or channel.owner_id != owner_id:
-        raise HTTPException(status_code=404, detail="Channel not found")
+        raise HTTPException(status_code=404, detail="Canal não encontrado")
     lifecycle.validate_provider_ids(video=payload.video_provider, image=payload.image_provider, tts=payload.tts_provider)
     if not scope.actor.is_admin:
         assert_active_series_quota(db, scope.actor, owner_id)
@@ -484,7 +493,7 @@ _EXT_TYPES = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp"}
 def _get_character(db: Session, series: StorySeries, character_id: uuid.UUID) -> StoryCharacter:
     char = db.get(StoryCharacter, character_id)
     if char is None or char.series_id != series.id:
-        raise HTTPException(status_code=404, detail="Character not found")
+        raise HTTPException(status_code=404, detail="Personagem não encontrado")
     return char
 
 
@@ -590,12 +599,12 @@ def get_reference_image(
     series = _get_series(db, series_id, scope)
     char = _get_character(db, series, character_id)
     if not char.reference_image_key:
-        raise HTTPException(status_code=404, detail="Reference image not found")
+        raise HTTPException(status_code=404, detail="Imagem de referência não encontrada")
     try:
         obj = s3.get_object(Bucket=get_settings().s3_bucket, Key=char.reference_image_key)
         body = obj["Body"].read()
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=404, detail="Reference image not found") from exc
+        raise HTTPException(status_code=404, detail="Imagem de referência não encontrada") from exc
     ext = char.reference_image_key.rsplit(".", 1)[-1]
     return Response(
         content=body,

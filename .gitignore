@@ -9,3 +9,4 @@ data/
 *.mkv
 *.mov
 celerybeat-schedule
+.claude/worktrees/

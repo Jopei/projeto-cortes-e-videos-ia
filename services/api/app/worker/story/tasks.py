@@ -49,8 +49,6 @@ from app.genmedia_catalog import price_usd
 from app.integrations import get_integration_value
 from app.models.clip import Clip, ClipStatus
 from app.models.story import (
-    CharacterEventState,
-    CharacterEventType,
     CharacterRole,
     CharacterStatus,
     EpisodeStatus,
@@ -64,7 +62,7 @@ from app.models.story import (
     StorySeries,
 )
 from app.models.user import User
-from app.story import prompts
+from app.story import lifecycle, prompts
 from app.story.plan_checks import check_season_plan
 from app.story.projection import assign_visual_modes, open_thread_keys, project_characters
 from app.story.schemas import TOOL_MODELS, parse_tool_result, tool_schema
@@ -355,7 +353,7 @@ def plan_series(series_id: str, instructions: str | None = None) -> dict:
         if series.status != SeriesStatus.PLANNING:
             return {"series_id": series_id, "status": "noop"}
         try:
-            if not _api_key():
+            if not llm.is_available(_api_key()):
                 _fail_plan(db, series, "Chave da Anthropic não configurada.")
                 return {"series_id": series_id, "status": "plan_failed"}
 
@@ -404,24 +402,6 @@ def plan_series(series_id: str, instructions: str | None = None) -> dict:
 # ============================================================== SCRIPT ====
 
 
-def _discard_episode_events(db: Session, series_id, episode: StoryEpisode) -> None:
-    """Proposed events of this episode -> discarded; uncommitted characters
-    it introduced are removed (together with this episode's events on them)."""
-    db.query(StoryCharacterEvent).filter(
-        StoryCharacterEvent.episode_id == episode.id, StoryCharacterEvent.state == CharacterEventState.PROPOSED
-    ).update({"state": CharacterEventState.DISCARDED}, synchronize_session=False)
-    orphans = db.query(StoryCharacter).filter(
-        StoryCharacter.series_id == series_id, StoryCharacter.committed.is_(False),
-        StoryCharacter.introduced_in_episode == episode.number,
-    ).all()
-    for char in orphans:
-        db.query(StoryCharacterEvent).filter(
-            StoryCharacterEvent.character_id == char.id, StoryCharacterEvent.state != CharacterEventState.APPLIED
-        ).delete(synchronize_session=False)
-        db.delete(char)
-    db.flush()
-
-
 @celery_app.task(name="app.worker.story.tasks.script_episode")
 def script_episode(episode_id: str) -> dict:
     outbox = _Outbox()
@@ -434,7 +414,7 @@ def script_episode(episode_id: str) -> dict:
             return result
         series = db.get(StorySeries, episode.series_id)
         try:
-            _discard_episode_events(db, series.id, episode)
+            lifecycle.sync_script_events(db, series, episode, None)
             db.commit()
 
             chars = _characters(db, series.id)
@@ -517,50 +497,6 @@ def script_episode(episode_id: str) -> dict:
 # ============================================================ VALIDATE ====
 
 
-def _create_events(db: Session, series: StorySeries, episode: StoryEpisode, script: dict) -> None:
-    """Persist the script's state events as PROPOSED (+ uncommitted rows for
-    newly introduced characters). Idempotent: this episode's previous
-    non-applied events/characters are cleared first."""
-    db.query(StoryCharacterEvent).filter(
-        StoryCharacterEvent.episode_id == episode.id, StoryCharacterEvent.state != CharacterEventState.APPLIED
-    ).delete(synchronize_session=False)
-    for char in db.query(StoryCharacter).filter(
-        StoryCharacter.series_id == series.id, StoryCharacter.committed.is_(False),
-        StoryCharacter.introduced_in_episode == episode.number,
-    ).all():
-        db.delete(char)
-    db.flush()
-    by_key = {c.key: c for c in _characters(db, series.id)}
-    for event in script.get("state_events") or []:
-        key = event["character_key"]
-        if event["type"] == "introduce":
-            new = event.get("new_character") or {}
-            char = StoryCharacter(
-                series_id=series.id, key=key, name=new.get("name") or key, role=CharacterRole(new.get("role") or "minor"),
-                description=new.get("description") or "", visual_description=new.get("visual_description") or "",
-                personality=new.get("personality"), status=CharacterStatus.ALIVE, committed=False,
-                introduced_in_episode=episode.number,
-            )
-            db.add(char)
-            db.flush()
-            by_key[key] = char
-            db.add(StoryCharacterEvent(
-                series_id=series.id, character_id=char.id, episode_id=episode.id, episode_number=episode.number,
-                type=CharacterEventType.INTRODUCE, from_status=None, to_status=CharacterStatus.ALIVE,
-                description=event.get("description"), state=CharacterEventState.PROPOSED,
-            ))
-        else:
-            char = by_key[key]
-            db.add(StoryCharacterEvent(
-                series_id=series.id, character_id=char.id, episode_id=episode.id, episode_number=episode.number,
-                type=CharacterEventType.STATUS_CHANGE,
-                from_status=CharacterStatus(event["from_status"]) if event.get("from_status") else None,
-                to_status=CharacterStatus(event["to_status"]) if event.get("to_status") else None,
-                description=event.get("description"), state=CharacterEventState.PROPOSED,
-            ))
-    db.flush()
-
-
 @celery_app.task(name="app.worker.story.tasks.validate_episode")
 def validate_episode(episode_id: str) -> dict:
     outbox = _Outbox()
@@ -607,7 +543,7 @@ def validate_episode(episode_id: str) -> dict:
             series = db.get(StorySeries, series.id)
 
             if report["ok"]:
-                _create_events(db, series, episode, script)
+                lifecycle.sync_script_events(db, series, episode, script)
                 transition(db, episode, E.SCRIPT_READY, E.VALIDATING, validation=report, error=None)
                 if series.require_script_approval:
                     transition(db, episode, E.AWAITING_SCRIPT_APPROVAL, E.SCRIPT_READY)
@@ -1272,9 +1208,10 @@ def _tick_series(db: Session, series: StorySeries, now: datetime, outbox: _Outbo
 
     stats["shift"] = _shift_agenda(db, series, episodes, now)
 
-    # TODO(lifecycle): retry `approved` episodes that found no publishing slot —
-    # needs the approve flow (apply events + create_publications) from the API's
-    # app/story/lifecycle.py; once merged, call it here for E.APPROVED episodes.
+    # `approved` episodes that found no publishing slot get another attempt.
+    for ep in episodes:
+        if ep.status == E.APPROVED and lifecycle.retry_approved_scheduling(db, lifecycle.Ctx(), series, ep):
+            stats["rescheduled"] = stats.get("rescheduled", 0) + 1
 
     # --- recovery of stuck stages / jobs --------------------------------
     stuck_after = timedelta(minutes=get_settings().story_stuck_minutes)

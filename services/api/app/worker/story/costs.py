@@ -65,7 +65,7 @@ def record_llm_usage(
         series_id=series_id,
         episode_id=episode_id,
         kind="llm",
-        provider="anthropic",
+        provider=usage.get("provider", "anthropic"),
         model=usage.get("model"),
         cost_usd=usage.get("cost_usd", 0),
         units={
