@@ -108,6 +108,13 @@ class Settings(BaseSettings):
                 "SECRET_KEY is missing or shorter than 32 characters. Set a "
                 "long random value in .env (see .env.example) before starting the API."
             )
+        if self.secret_key.startswith("gere-um-valor"):
+            # The .env.example placeholder is long enough to pass the length
+            # check, and it is public — signing sessions with it is unsafe.
+            raise ValueError(
+                "SECRET_KEY still has the .env.example placeholder. Generate a "
+                "random value: python3 -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
         return self
 
 
