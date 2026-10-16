@@ -13,10 +13,71 @@ import { ApiError, formatApiErrorDetail } from "@/lib/api";
 import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { LicenseTypeBadge, SourceWarningBadges } from "@/components/sources/LicenseBadge";
 import { SourceForm } from "@/components/sources/SourceForm";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Callout } from "@/components/ui/Callout";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { DataTable, type Column } from "@/components/ui/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Icon } from "@/components/ui/Icon";
+import { MoreMenu } from "@/components/ui/MoreMenu";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SkeletonList } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
+
+const NOTICE_KEY = "cortes.fontes.aviso-recolhido";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("pt-BR");
+}
+
+function daysUntil(value: string | null): number | null {
+  if (!value) return null;
+  return Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000);
+}
+
+function Validity({ source }: { source: Source }) {
+  const left = daysUntil(source.valid_until);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span className="tabular-nums">
+        {source.valid_from || source.valid_until ? `${formatDate(source.valid_from)} – ${formatDate(source.valid_until)}` : "Sem prazo"}
+      </span>
+      {left !== null && left >= 0 && left <= 30 ? <Badge variant="warning">vence em {left} d</Badge> : null}
+    </span>
+  );
+}
+
+function LicenseRules({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  return (
+    <Callout
+      variant="warning"
+      role="alert"
+      title="Aviso de licenciamento"
+      className="mb-6"
+      action={
+        <Button variant="ghost" size="sm" onClick={onToggle} aria-expanded={!collapsed}>
+          {collapsed ? "Ver regras" : "Ocultar"}
+        </Button>
+      }
+    >
+      {collapsed ? (
+        <span>Nenhum corte é publicado sem licença válida verificada.</span>
+      ) : (
+        <ul className="list-disc space-y-1 pl-5">
+          <li>Nenhum corte é publicado sem licença válida verificada.</li>
+          <li>
+            Dublagens e trilhas sonoras podem ter direitos próprios, distintos dos direitos do vídeo original —
+            precisam de licença separada.
+          </li>
+          <li>
+            Conteúdo sob licenças CC-NC (não comercial) e CC-ND (sem derivações) é bloqueado para monetização.
+          </li>
+        </ul>
+      )}
+    </Callout>
+  );
 }
 
 export function SourcesManager() {
@@ -24,22 +85,33 @@ export function SourcesManager() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<"closed" | "create" | Source>("closed");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Source | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [rulesCollapsed, setRulesCollapsed] = useState(false);
+  const { showToast } = useToast();
   const showOwner = useShowOwnerColumn();
   const ownerLabel = useOwnerLabel();
+
+  useEffect(() => {
+    setRulesCollapsed(window.localStorage.getItem(NOTICE_KEY) === "1");
+  }, []);
+
+  function toggleRules() {
+    setRulesCollapsed((c) => {
+      window.localStorage.setItem(NOTICE_KEY, c ? "0" : "1");
+      return !c;
+    });
+  }
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await listSources(signal);
-      setSources(data);
+      setSources(await listSources(signal));
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      setLoadError(
-        err instanceof ApiError ? err.message : "Não foi possível carregar as fontes.",
-      );
+      setLoadError(err instanceof ApiError ? err.message : "Não foi possível carregar as fontes.");
     } finally {
       setLoading(false);
     }
@@ -47,201 +119,143 @@ export function SourcesManager() {
 
   useEffect(() => {
     const controller = new AbortController();
-    load(controller.signal);
+    void load(controller.signal);
     return () => controller.abort();
   }, [load]);
 
   async function handleCreate(payload: SourceInput) {
     await createSource(payload);
     setFormMode("closed");
-    setNotice("Fonte criada com sucesso.");
+    showToast("Fonte criada com sucesso.", "success");
     await load();
   }
 
   async function handleUpdate(id: string, payload: SourceInput) {
     await updateSource(id, payload);
     setFormMode("closed");
-    setNotice("Fonte atualizada com sucesso.");
+    showToast("Fonte atualizada com sucesso.", "success");
     await load();
   }
 
-  async function handleDelete(source: Source) {
-    if (!window.confirm(`Excluir a fonte "${source.title}"? Esta ação não pode ser desfeita.`)) {
-      return;
-    }
-    setDeletingId(source.id);
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
     try {
-      await deleteSource(source.id);
-      setNotice("Fonte excluída.");
+      await deleteSource(deleteTarget.id);
+      showToast("Fonte excluída.", "success");
+      setDeleteTarget(null);
       await load();
     } catch (err) {
-      setNotice(
+      setDeleteError(
         err instanceof ApiError
           ? `Erro ao excluir: ${err.detail ? formatApiErrorDetail(err.detail) : err.message}`
           : "Erro inesperado ao excluir a fonte.",
       );
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div aria-live="polite" className="sr-only">
-        {notice}
-      </div>
-
-      {formMode === "closed" ? (
-        <div>
-          <button
-            type="button"
-            onClick={() => setFormMode("create")}
-            className="btn btn-primary"
-          >
-            + Nova fonte
-          </button>
+  const columns: Column<Source>[] = [
+    { id: "title", header: "Título", primary: true, cell: (s) => s.title },
+    { id: "work", header: "Obra", cell: (s) => s.work_name },
+    {
+      id: "license",
+      header: "Licença",
+      cell: (s) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <LicenseTypeBadge licenseType={s.license_type} />
+          <SourceWarningBadges source={s} />
         </div>
-      ) : (
-        <SourceForm
-          source={formMode === "create" ? undefined : formMode}
-          onSubmit={(payload) =>
-            formMode === "create" ? handleCreate(payload) : handleUpdate(formMode.id, payload)
-          }
-          onCancel={() => setFormMode("closed")}
-        />
-      )}
+      ),
+    },
+    { id: "validity", header: "Validade", cell: (s) => <Validity source={s} /> },
+    ...(showOwner ? [{ id: "owner", header: "Dono", cell: (s: Source) => ownerLabel(s.owner_id) }] : []),
+  ];
 
-      {notice ? (
-        <div className="border-success/40 bg-success-soft text-fg rounded-lg border p-3 text-sm">
-          {notice}
+  return (
+    <div className="flex flex-col">
+      <PageHeader
+        title="Fontes & Licenças"
+        description="Cadastro das fontes de vídeo (licenciadas ou de domínio público) e do tipo de licença associada a cada uma, incluindo trilhas e dublagens usadas nos cortes."
+        actions={
+          formMode === "closed" ? (
+            <Button onClick={() => setFormMode("create")}>
+              <Icon name="plus" size={16} /> Nova fonte
+            </Button>
+          ) : null
+        }
+      />
+
+      <LicenseRules collapsed={rulesCollapsed} onToggle={toggleRules} />
+
+      {formMode !== "closed" ? (
+        <div className="mb-6">
+          <SourceForm
+            source={formMode === "create" ? undefined : formMode}
+            onSubmit={(payload) =>
+              formMode === "create" ? handleCreate(payload) : handleUpdate(formMode.id, payload)
+            }
+            onCancel={() => setFormMode("closed")}
+          />
         </div>
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Carregando fontes…</p>
+        <SkeletonList rows={3} />
       ) : loadError ? (
-        <div
-          role="alert"
-          className="border-danger/40 bg-danger-soft text-fg rounded-lg border p-3 text-sm"
-        >
+        <Callout variant="danger" role="alert" title="Não foi possível carregar as fontes" action={<Button variant="secondary" size="sm" onClick={() => void load()}>Tentar de novo</Button>}>
           {loadError}
-        </div>
+        </Callout>
       ) : sources.length === 0 ? (
-        <p className="text-sm text-fg-subtle">
-          Nenhuma fonte cadastrada ainda.
-        </p>
+        <EmptyState
+          icon="shield"
+          title="Nenhuma fonte cadastrada ainda"
+          description="Cadastre a licença do vídeo antes de enviá-lo. Sem fonte e licença válida, nada é publicado."
+          action={<Button onClick={() => setFormMode("create")}>Cadastrar primeira fonte</Button>}
+        />
       ) : (
-        <>
-        <ul className="flex flex-col gap-3 md:hidden" aria-label="Fontes e licenças">
-          {sources.map((source) => (
-            <li key={source.id} className="rounded-xl border border-border bg-surface p-4 shadow-card dark:shadow-none">
-              <p className="font-medium text-fg">{source.title}</p>
-              <p className="text-sm text-fg-muted">{source.work_name}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <LicenseTypeBadge licenseType={source.license_type} />
-                <SourceWarningBadges source={source} />
-              </div>
-              <dl className="mt-3 grid grid-cols-2 gap-x-3 text-sm">
-                <dt className="text-fg-subtle">Validade</dt>
-                <dd className="text-fg-muted tabular-nums">
-                  {formatDate(source.valid_from)} – {formatDate(source.valid_until)}
-                </dd>
-                {showOwner ? (
-                  <>
-                    <dt className="text-fg-subtle">Dono</dt>
-                    <dd className="text-fg-muted">{ownerLabel(source.owner_id)}</dd>
-                  </>
-                ) : null}
-              </dl>
-              <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => setFormMode(source)} className="btn btn-secondary btn-sm flex-1">
-                  Editar<span className="sr-only"> {source.title}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(source)}
-                  disabled={deletingId === source.id}
-                  className="btn btn-danger-outline btn-sm flex-1"
-                >
-                  {deletingId === source.id ? "Excluindo…" : "Excluir"}
-                  <span className="sr-only"> {source.title}</span>
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <div className="hidden overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none md:block">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <caption className="sr-only">Lista de fontes e licenças cadastradas</caption>
-            <thead className="bg-surface-2">
-              <tr>
-                <th scope="col" className={thClass}>
-                  Título
-                </th>
-                <th scope="col" className={thClass}>
-                  Obra
-                </th>
-                <th scope="col" className={thClass}>
-                  Licença
-                </th>
-                <th scope="col" className={thClass}>
-                  Validade
-                </th>
-                {showOwner ? (
-                  <th scope="col" className={thClass}>
-                    Dono
-                  </th>
-                ) : null}
-                <th scope="col" className={thClass}>
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y bg-surface divide-border">
-              {sources.map((source) => (
-                <tr key={source.id}>
-                  <td className={tdClass}>{source.title}</td>
-                  <td className={tdClass}>{source.work_name}</td>
-                  <td className={tdClass}>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <LicenseTypeBadge licenseType={source.license_type} />
-                      <SourceWarningBadges source={source} />
-                    </div>
-                  </td>
-                  <td className={tdClass}>
-                    {formatDate(source.valid_from)} – {formatDate(source.valid_until)}
-                  </td>
-                  {showOwner ? <td className={tdClass}>{ownerLabel(source.owner_id)}</td> : null}
-                  <td className={`${tdClass} whitespace-nowrap`}>
-                    <button
-                      type="button"
-                      onClick={() => setFormMode(source)}
-                      className="btn btn-ghost btn-sm"
-                    >
-                      Editar
-                      <span className="sr-only"> {source.title}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(source)}
-                      disabled={deletingId === source.id}
-                      className="btn btn-danger-outline btn-sm"
-                    >
-                      {deletingId === source.id ? "Excluindo…" : "Excluir"}
-                      <span className="sr-only"> {source.title}</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        </>
+        <DataTable
+          caption="Fontes e licenças cadastradas"
+          columns={columns}
+          rows={sources}
+          rowKey={(s) => s.id}
+          actions={(s) => (
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setFormMode(s)}>
+                Editar<span className="sr-only"> {s.title}</span>
+              </Button>
+              <MoreMenu
+                label={s.title}
+                items={[
+                  {
+                    label: s.license_type === "ai_generated" ? "Excluir (fonte de Série IA)" : "Excluir",
+                    danger: true,
+                    disabled: s.license_type === "ai_generated",
+                    onSelect: () => {
+                      setDeleteError(null);
+                      setDeleteTarget(s);
+                    },
+                  },
+                ]}
+              />
+            </>
+          )}
+        />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir fonte"
+        confirmLabel="Excluir"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      >
+        Excluir a fonte <span className="font-semibold text-fg">{deleteTarget?.title}</span>? Esta ação não pode ser desfeita.
+      </ConfirmDialog>
     </div>
   );
 }
-
-const thClass =
-  "px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-fg-subtle";
-const tdClass = "px-4 py-3 text-fg";

@@ -1,6 +1,7 @@
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Badge } from "@/components/ui/Badge";
 import { formatUsd } from "@/lib/format";
 import {
@@ -19,8 +20,8 @@ const TARGET_S: [number, number] = [26, 34];
 const TARGET_WORDS: [number, number] = [55, 85];
 
 function rangeTone(value: number, [min, max]: [number, number]): string {
-  if (value >= min && value <= max) return "text-emerald-700 dark:text-emerald-300";
-  if (value >= min - 3 && value <= max + 5) return "text-amber-700 dark:text-amber-300";
+  if (value >= min && value <= max) return "text-success";
+  if (value >= min - 3 && value <= max + 5) return "text-warning";
   return "text-danger";
 }
 
@@ -66,7 +67,7 @@ export const SceneCard = forwardRef<HTMLLIElement, { scene: Scene; position: num
 ) {
   const location = bible?.world.locations.find((l) => l.key === scene.location_key);
   return (
-    <li ref={ref} tabIndex={-1} className="flex flex-col gap-2 rounded-lg border border-border p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+    <li ref={ref} tabIndex={-1} className="flex flex-col gap-2 rounded-lg border border-border p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold text-fg">Cena {position + 1}</span>
         <span className="text-xs text-fg-muted">{Number(scene.duration_s).toFixed(1).replace(".", ",")} s</span>
@@ -122,9 +123,9 @@ export function ScriptEditor({
     [scenes[i], scenes[j]] = [scenes[j], scenes[i]];
     onChange({ ...script, scenes: reindex(scenes) });
   }
+  const [removeIdx, setRemoveIdx] = useState<number | null>(null);
   function remove(i: number) {
     if (script.scenes.length <= 3) return;
-    if (!window.confirm(`Remover a cena ${i + 1}?`)) return;
     onChange({ ...script, scenes: reindex(script.scenes.filter((_, j) => j !== i)) });
   }
   function add() {
@@ -153,7 +154,7 @@ export function ScriptEditor({
     <div className="flex flex-col gap-3">
       <ScriptTotals script={script} />
       {series.visual_strategy === "hybrid" && videoScenes > series.max_video_scenes_per_episode ? (
-        <p role="status" className="text-xs text-amber-700 dark:text-amber-300">
+        <p role="status" className="text-xs text-warning">
           Atenção: {videoScenes} cenas em vídeo; o limite desta série é {series.max_video_scenes_per_episode} por episódio.
         </p>
       ) : null}
@@ -162,7 +163,7 @@ export function ScriptEditor({
           const id = `scene-${i}`;
           const impact = s.visual_mode === "video" ? videoImpact(s) : null;
           return (
-            <li key={i} data-scene-position={i} tabIndex={-1} className="flex flex-col gap-3 rounded-lg border border-border-strong p-3 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+            <li key={i} data-scene-position={i} tabIndex={-1} className="flex flex-col gap-3 rounded-lg border border-border-strong p-3 outline-none focus-visible:ring-2 focus-visible:ring-primary">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-fg">Cena {i + 1}</span>
                 <div className="flex flex-wrap gap-2">
@@ -172,7 +173,7 @@ export function ScriptEditor({
                   <button type="button" onClick={() => move(i, 1)} disabled={i === script.scenes.length - 1} className={secondaryButton} aria-label={`Descer cena ${i + 1}`}>
                     Descer
                   </button>
-                  <button type="button" onClick={() => remove(i)} disabled={script.scenes.length <= 3} className={secondaryButton} aria-label={`Remover cena ${i + 1}`}>
+                  <button type="button" onClick={() => setRemoveIdx(i)} disabled={script.scenes.length <= 3} className={secondaryButton} aria-label={`Remover cena ${i + 1}`}>
                     Remover cena
                   </button>
                 </div>
@@ -286,6 +287,18 @@ export function ScriptEditor({
       <button type="button" onClick={add} disabled={script.scenes.length >= 6} className={`${secondaryButton} self-start`}>
         Adicionar cena
       </button>
+      <ConfirmDialog
+        open={removeIdx !== null}
+        title="Remover cena"
+        confirmLabel="Remover"
+        onConfirm={() => {
+          if (removeIdx !== null) remove(removeIdx);
+          setRemoveIdx(null);
+        }}
+        onCancel={() => setRemoveIdx(null)}
+      >
+        Remover a cena {removeIdx !== null ? removeIdx + 1 : ""}? A alteração só vale depois de salvar o roteiro.
+      </ConfirmDialog>
     </div>
   );
 }

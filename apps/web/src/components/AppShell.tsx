@@ -9,13 +9,39 @@ import { useAuth } from "@/lib/user-context";
 import { Icon } from "@/components/ui/Icon";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { titleForPath } from "@/lib/nav";
+import { CommandPalette } from "@/components/CommandPalette";
 import Link from "next/link";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const { user } = useAuth();
   const { asUser, asUserId, setAsUserId } = useAdminView();
+
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem("cortes.sidebar.collapsed") === "1");
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((c) => {
+      window.localStorage.setItem("cortes.sidebar.collapsed", c ? "0" : "1");
+      return !c;
+    });
+  }
+
+  // Ctrl/Cmd+K opens the navigation palette (not on the login screen).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {
@@ -88,11 +114,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <aside
           id="sidebar-drawer"
-          className={`fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] transform border-r border-border bg-surface shadow-pop transition-transform duration-200 ease-in-out motion-reduce:transition-none md:static md:shadow-none md:z-auto md:w-64 md:translate-x-0 ${
+          data-collapsed={collapsed}
+          className={`group/sb fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] transform border-r border-border bg-surface shadow-pop transition-transform duration-200 ease-in-out motion-reduce:transition-none md:static md:shadow-none md:transition-[width] md:duration-200 ${collapsed ? "md:w-[4.5rem]" : "md:w-64"} md:z-auto md:translate-x-0 ${
             isDrawerOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <Sidebar onNavigate={() => setDrawerOpen(false)} />
+          <Sidebar
+            onNavigate={() => setDrawerOpen(false)}
+            collapsed={collapsed}
+            onToggleCollapsed={toggleCollapsed}
+            onOpenPalette={() => {
+              setDrawerOpen(false);
+              setPaletteOpen(true);
+            }}
+          />
         </aside>
 
         <main
@@ -103,6 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

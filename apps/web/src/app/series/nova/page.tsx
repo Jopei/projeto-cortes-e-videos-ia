@@ -8,7 +8,7 @@ export default function NewSeriesPage() {
         title="Nova série"
         description="Descreva a ideia, escolha o estilo e veja a estimativa de custo antes de criar."
       />
-      <div className="max-w-4xl"><SeriesWizard /></div>
+      <SeriesWizard />
     </div>
   );
 }

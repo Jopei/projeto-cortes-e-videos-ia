@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Icon } from "@/components/ui/Icon";
 import {
   seriesApi,
   type Bible,
@@ -406,7 +407,7 @@ function ChipEditor({ label, values, editing, onChange }: { label: string; value
             {v}
             {editing ? (
               <button type="button" aria-label={`Remover ${v}`} onClick={() => onChange(values.filter((x) => x !== v))} className="font-semibold">
-                <span aria-hidden="true">✕</span>
+                <Icon name="x" size={14} />
               </button>
             ) : null}
           </li>

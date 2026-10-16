@@ -24,7 +24,14 @@ import { AccountForm } from "@/components/accounts/AccountForm";
 import { IntegrationKeysDialog } from "@/components/accounts/IntegrationKeysDialog";
 import { PlatformHelpPopover } from "@/components/accounts/PlatformHelpPopover";
 import { ChannelColorDot } from "@/components/channels/ChannelPicker";
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Callout } from "@/components/ui/Callout";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Dialog } from "@/components/ui/Dialog";
+import { Icon } from "@/components/ui/Icon";
+import { MoreMenu } from "@/components/ui/MoreMenu";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { AccountStatusBadge } from "@/components/ui/StatusBadges";
@@ -240,215 +247,188 @@ export function AccountsManager() {
   if (loading) return <SkeletonList rows={5} />;
   if (error) {
     return (
-      <p role="alert" className="text-sm text-danger">
+      <Callout variant="danger" role="alert" title="Não foi possível carregar as contas" action={<Button variant="secondary" size="sm" onClick={() => void load()}>Tentar de novo</Button>}>
         {error}
-      </p>
+      </Callout>
     );
   }
 
+  const accountColumns: Column<PlatformAccount>[] = [
+    { id: "name", header: "Conta", primary: true, cell: (a) => a.display_name },
+    { id: "platform", header: "Plataforma", cell: (a) => PLATFORM_LABELS[a.platform] },
+    {
+      id: "channel",
+      header: "Canal",
+      cell: (a) => (
+        <span className="flex items-center gap-1.5">
+          {a.channel_id ? <ChannelColorDot color={channels.find((c) => c.id === a.channel_id)?.color ?? null} /> : null}
+          {channelName(channels, a.channel_id)}
+        </span>
+      ),
+    },
+    ...(showOwner ? [{ id: "owner", header: "Dono", cell: (a: PlatformAccount) => ownerLabel(a.owner_id) }] : []),
+    { id: "status", header: "Status", cell: (a) => <AccountStatusBadge status={a.status} /> },
+  ];
+
+  function platformState(platform: PlatformInfo): { label: string; variant: BadgeVariant } {
+    if (accounts.some((a) => a.platform === platform.id && a.status === "connected")) return { label: "Conectada", variant: "success" };
+    if (!platform.supports_oauth) return { label: "Manual", variant: "neutral" };
+    return platform.configured ? { label: "Pronta para conectar", variant: "info" } : { label: "Sem chaves", variant: "warning" };
+  }
+
+  const configureButton = (id: IntegrationId, primary: boolean) => (
+    <Button
+      variant={primary ? "primary" : "ghost"}
+      size={primary ? "md" : "sm"}
+      onClick={() => setConfigureTarget(id)}
+      disabled={loadingIntegrations || !integrations[id]}
+      aria-label={primary ? undefined : "Configurar chaves"}
+      title={primary ? undefined : "Configurar chaves"}
+    >
+      <Icon name="settings" size={16} />
+      {primary ? "Configurar chaves" : null}
+    </Button>
+  );
+
   return (
-    <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-semibold text-fg">Plataformas</h2>
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {platforms.map((platform) => (
-            <li
-              key={platform.id}
-              className="flex flex-col gap-2 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 font-medium text-fg">
-                  {platform.name}
-                  <PlatformHelpPopover
-                    help={INTEGRATION_HELP[platform.id]}
-                    redirectUri={integrations[platform.id]?.redirect_uri ?? null}
-                  />
-                </span>
-                {platform.supports_oauth ? (
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="platforms-heading" className="flex flex-col gap-3">
+        <h2 id="platforms-heading" className="text-base font-semibold text-fg">
+          Plataformas
+        </h2>
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {platforms.map((platform) => {
+            const state = platformState(platform);
+            const needsKeys = platform.supports_oauth && !platform.configured;
+            return (
+              <li
+                key={platform.id}
+                className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-card transition-shadow hover:border-border-strong hover:shadow-card-hover dark:shadow-none dark:ring-1 dark:ring-white/5 sm:p-5"
+              >
+                <div className="flex items-start gap-3">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      platform.configured
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
-                        : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-                    }`}
+                    aria-hidden="true"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-sm font-semibold text-fg-muted"
                   >
-                    {platform.configured ? "OAuth configurado" : "OAuth não configurado"}
+                    {platform.name.slice(0, 2).toUpperCase()}
                   </span>
-                ) : (
-                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-fg-muted">
-                    Somente manual
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-fg-subtle">{platform.notes}</p>
-              {platform.supports_oauth && !platform.configured && !isAdmin ? (
-                <p className="text-xs text-fg-subtle">
-                  Peça ao administrador para configurar.
-                </p>
-              ) : null}
-              <div className="mt-auto flex flex-wrap gap-3 pt-2 text-sm font-medium">
-                {platform.supports_oauth ? (
-                  <button
-                    type="button"
-                    onClick={() => handleConnect(platform)}
-                    className="text-primary-text hover:underline"
-                  >
-                    Conectar
-                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1 font-semibold text-fg">
+                      <span className="truncate">{platform.name}</span>
+                      <PlatformHelpPopover
+                        help={INTEGRATION_HELP[platform.id]}
+                        redirectUri={integrations[platform.id]?.redirect_uri ?? null}
+                      />
+                    </p>
+                    <Badge variant={state.variant} dot>
+                      {state.label}
+                    </Badge>
+                  </div>
+                </div>
+                <p className="line-clamp-3 text-sm text-fg-muted">{platform.notes}</p>
+                {needsKeys && !isAdmin ? (
+                  <p className="text-sm text-fg-subtle">Peça ao administrador para configurar as chaves.</p>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => setAddManualPlatform(platform.id)}
-                  className="text-primary-text hover:underline"
-                >
-                  Adicionar conta manual
-                </button>
-                {isAdmin ? (
-                  <button
-                    type="button"
-                    onClick={() => setConfigureTarget(platform.id)}
-                    disabled={loadingIntegrations || !integrations[platform.id]}
-                    className="text-primary-text hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+                  {platform.supports_oauth && !needsKeys ? (
+                    <Button onClick={() => void handleConnect(platform)}>Conectar</Button>
+                  ) : null}
+                  {needsKeys && isAdmin ? configureButton(platform.id, true) : null}
+                  <Button
+                    variant={platform.supports_oauth ? "ghost" : "primary"}
+                    size={platform.supports_oauth ? "sm" : "md"}
+                    onClick={() => setAddManualPlatform(platform.id)}
                   >
-                    Configurar chaves
-                  </button>
-                ) : null}
-              </div>
-            </li>
-          ))}
+                    Adicionar conta manual
+                  </Button>
+                  {isAdmin && !needsKeys && platform.supports_oauth ? <span className="ml-auto">{configureButton(platform.id, false)}</span> : null}
+                </div>
+              </li>
+            );
+          })}
 
           {AI_INTEGRATION_CARDS.map((card) => (
             <li
               key={card.id}
-              className="flex flex-col gap-2 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4"
+              className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-card transition-shadow hover:border-border-strong hover:shadow-card-hover dark:shadow-none dark:ring-1 dark:ring-white/5 sm:p-5"
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 font-medium text-fg">
-                  {card.title}
-                  <PlatformHelpPopover help={INTEGRATION_HELP[card.id]} redirectUri={null} />
+              <div className="flex items-start gap-3">
+                <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
+                  <Icon name="sparkles" />
                 </span>
-                {isAdmin ? (
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      integrations[card.id]?.configured
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
-                        : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-                    }`}
-                  >
-                    {integrations[card.id]?.configured ? "Configurado" : "Não configurado"}
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-fg-muted">
-                    Gerenciado pelo administrador
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-fg-subtle">{card.description}</p>
-              {isAdmin ? (
-                <div className="mt-auto flex gap-3 pt-2 text-sm font-medium">
-                  <button
-                    type="button"
-                    onClick={() => setConfigureTarget(card.id)}
-                    disabled={loadingIntegrations || !integrations[card.id]}
-                    className="text-primary-text hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Configurar chaves
-                  </button>
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1 font-semibold text-fg">
+                    <span className="truncate">{card.title}</span>
+                    <PlatformHelpPopover help={INTEGRATION_HELP[card.id]} redirectUri={null} />
+                  </p>
+                  {isAdmin ? (
+                    <Badge variant={integrations[card.id]?.configured ? "success" : "warning"} dot>
+                      {integrations[card.id]?.configured ? "Configurado" : "Sem chaves"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="neutral">Gerenciado pelo administrador</Badge>
+                  )}
                 </div>
-              ) : null}
+              </div>
+              <p className="line-clamp-4 text-sm text-fg-muted">{card.description}</p>
+              {isAdmin ? <div className="mt-auto pt-1">{configureButton(card.id, !integrations[card.id]?.configured)}</div> : null}
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-semibold text-fg">Contas cadastradas</h2>
+      <section aria-labelledby="accounts-heading" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="accounts-heading" className="text-base font-semibold text-fg">
+            Contas cadastradas
+          </h2>
           {channelFilter ? (
-            <span className="border-info/40 bg-info-soft text-fg flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+            <span className="flex items-center gap-1 rounded-full border border-info/40 bg-info-soft py-0.5 pl-3 pr-1 text-xs text-fg">
               Canal: {channelName(channels, channelFilter)}
               <button
                 type="button"
                 onClick={() => router.replace(pathname)}
                 aria-label="Remover filtro de canal"
-                className="font-semibold"
+                className="focus-ring flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-2"
               >
-                ✕
+                <Icon name="x" size={14} />
               </button>
             </span>
           ) : null}
         </div>
         {accounts.length === 0 ? (
           <EmptyState
+            icon="plug"
             title="Nenhuma conta cadastrada"
             description="Conecte uma conta OAuth ou adicione uma conta manual (ex.: Bilibili) para publicar cortes."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
-            <table className="min-w-full divide-y divide-border text-sm">
-              <caption className="sr-only">Contas de plataformas cadastradas</caption>
-              <thead className="bg-surface-2">
-                <tr>
-                  <th scope="col" className={thClass}>Conta</th>
-                  <th scope="col" className={thClass}>Plataforma</th>
-                  <th scope="col" className={thClass}>Canal</th>
-                  {showOwner ? <th scope="col" className={thClass}>Dono</th> : null}
-                  <th scope="col" className={thClass}>Status</th>
-                  <th scope="col" className={thClass}>Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y bg-surface divide-border">
-                {accounts.map((account) => (
-                  <tr key={account.id}>
-                    <td className={tdClass}>{account.display_name}</td>
-                    <td className={tdClass}>{PLATFORM_LABELS[account.platform]}</td>
-                    <td className={tdClass}>
-                      <span className="flex items-center gap-1.5">
-                        {account.channel_id ? (
-                          <ChannelColorDot
-                            color={channels.find((c) => c.id === account.channel_id)?.color ?? null}
-                          />
-                        ) : null}
-                        {channelName(channels, account.channel_id)}
-                      </span>
-                    </td>
-                    {showOwner ? <td className={tdClass}>{ownerLabel(account.owner_id)}</td> : null}
-                    <td className={tdClass}>
-                      <AccountStatusBadge status={account.status} />
-                    </td>
-                    <td className={`${tdClass} space-x-3 whitespace-nowrap`}>
-                      <button
-                        type="button"
-                        onClick={() => setEditTarget(account)}
-                        className="font-medium text-primary-text hover:underline"
-                      >
-                        Editar
-                      </button>
-                      {(account.status === "expired" || account.status === "error") ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const info = platforms.find((p) => p.id === account.platform);
-                            if (info) handleConnect(info);
-                          }}
-                          className="font-medium text-amber-600 hover:underline dark:text-amber-400"
-                        >
-                          Reconectar
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(account)}
-                        className="font-medium text-danger hover:underline"
-                      >
-                        Excluir
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            caption="Contas de plataformas cadastradas"
+            columns={accountColumns}
+            rows={accounts}
+            rowKey={(a) => a.id}
+            actions={(a) => (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => setEditTarget(a)}>
+                  Editar<span className="sr-only"> {a.display_name}</span>
+                </Button>
+                {a.status === "expired" || a.status === "error" ? (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      const info = platforms.find((p) => p.id === a.platform);
+                      if (info) void handleConnect(info);
+                    }}
+                  >
+                    Reconectar
+                  </Button>
+                ) : null}
+                <MoreMenu label={a.display_name} items={[{ label: "Excluir conta", danger: true, onSelect: () => setDeleteTarget(a) }]} />
+              </>
+            )}
+          />
         )}
       </section>
 
@@ -528,33 +508,16 @@ export function AccountsManager() {
         ) : null}
       </Dialog>
 
-      <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)} title="Excluir conta">
-        {deleteTarget ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-fg-muted">
-              Excluir a conta <span className="font-semibold">{deleteTarget.display_name}</span>? Esta
-              ação não pode ser desfeita.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="btn btn-danger"
-              >
-                {deleting ? "Excluindo…" : "Excluir"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="btn btn-secondary"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </Dialog>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir conta"
+        confirmLabel="Excluir"
+        busy={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      >
+        Excluir a conta <span className="font-semibold text-fg">{deleteTarget?.display_name}</span>? Esta ação não pode ser desfeita.
+      </ConfirmDialog>
 
       {configureTarget && integrations[configureTarget] ? (
         <IntegrationKeysDialog
@@ -568,6 +531,3 @@ export function AccountsManager() {
   );
 }
 
-const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted";
-const tdClass = "px-4 py-3 text-fg";

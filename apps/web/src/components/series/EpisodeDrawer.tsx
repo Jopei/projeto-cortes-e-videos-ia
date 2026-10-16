@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Icon } from "@/components/ui/Icon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clipThumbnailUrl, clipVideoUrl } from "@/lib/clips";
 import { PLATFORM_LABELS } from "@/lib/channels";
@@ -462,7 +463,7 @@ export function EpisodeDrawer({
                             {ev.state === "proposed" ? " (proposto)" : ev.state === "applied" ? " (aplicado)" : ""}
                           </span>
                           {ev.description ? <span className="block text-xs text-fg-muted">{ev.description}</span> : null}
-                          {kills && ev.state !== "applied" ? <span className="block text-xs font-medium text-amber-800 dark:text-amber-200">Esta cena mata um personagem. Só entra em vigor ao aprovar o vídeo.</span> : null}
+                          {kills && ev.state !== "applied" ? <span className="block text-xs font-medium text-warning">Esta cena mata um personagem. Só entra em vigor ao aprovar o vídeo.</span> : null}
                         </li>
                       );
                     })}
@@ -582,13 +583,13 @@ function Stepper({ status }: { status: EpisodeStatus }) {
             <span
               className={`rounded-full border px-2 py-0.5 font-medium ${
                 isCurrent
-                  ? "border-indigo-500 bg-primary text-white"
+                  ? "border-primary bg-primary text-white"
                   : done
                     ? "border-success/40 bg-success-soft text-fg"
                     : "border-border-strong text-fg-muted"
               }`}
             >
-              {done && !isCurrent ? <span aria-hidden="true">✓ </span> : null}
+              {done && !isCurrent ? <Icon name="check" size={12} /> : null}
               {i === 5 && status === "published" ? "Publicado" : label}
             </span>
             {i < STEPS.length - 1 ? <span aria-hidden="true" className="text-fg-subtle">›</span> : null}

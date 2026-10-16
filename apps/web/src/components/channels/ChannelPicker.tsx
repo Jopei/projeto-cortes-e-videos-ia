@@ -1,38 +1,68 @@
 "use client";
 
+import { Icon } from "@/components/ui/Icon";
+import { MenuItem, Popover } from "@/components/ui/Popover";
 import { useChannelContext } from "@/lib/channel-context";
 
-/** Global channel filter, shown in the sidebar. Selecting "Todos os canais"
- * clears the filter (empty string) everywhere that reads from the context. */
+/** Global channel filter, shown in the sidebar (popover listbox-style menu).
+ * "Todos os canais" clears the filter (empty string) everywhere the context is read. */
 export function ChannelPicker() {
   const { channels, selectedChannelId, setSelectedChannelId, loading, selectedChannel } = useChannelContext();
+  const current = selectedChannel ? selectedChannel.name : "Todos os canais";
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor="global-channel-picker" className="px-1 text-xs font-medium text-fg-subtle">
-        Canal
-      </label>
-      <div className="relative">
-        {selectedChannel ? (
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
-            <ChannelColorDot color={selectedChannel.color} />
-          </span>
-        ) : null}
-        <select
-          id="global-channel-picker"
-          value={selectedChannelId}
-          onChange={(e) => setSelectedChannelId(e.target.value)}
-          disabled={loading}
-          className={`field-control w-full bg-surface-2 text-sm font-medium ${selectedChannel ? "pl-8" : ""}`}
-        >
-          <option value="">Todos os canais</option>
-          {channels.map((channel) => (
-            <option key={channel.id} value={channel.id}>
-              {channel.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <span className="px-1 text-xs font-medium text-fg-subtle md:group-data-[collapsed=true]/sb:hidden">Canal</span>
+      <Popover
+        label="Escolher canal"
+        minWidth={224}
+        renderTrigger={(props) => (
+          <button
+            type="button"
+            {...props}
+            disabled={loading}
+            title={`Canal: ${current}`}
+            aria-label={`Canal: ${current}. Alterar`}
+            className="focus-ring flex min-h-[40px] w-full items-center gap-2 rounded-lg border border-border-strong bg-surface-2 px-3 py-2 text-left text-sm font-medium text-fg transition-colors hover:bg-border disabled:opacity-60 md:group-data-[collapsed=true]/sb:justify-center md:group-data-[collapsed=true]/sb:px-0"
+          >
+            {selectedChannel ? (
+              <ChannelColorDot color={selectedChannel.color} />
+            ) : (
+              <Icon name="layers" size={16} className="text-fg-subtle" />
+            )}
+            <span className="min-w-0 flex-1 truncate md:group-data-[collapsed=true]/sb:hidden">{current}</span>
+            <Icon name="chevronDown" size={16} className="text-fg-subtle md:group-data-[collapsed=true]/sb:hidden" />
+          </button>
+        )}
+      >
+        {(close) => (
+          <>
+            <MenuItem
+              checked={selectedChannelId === ""}
+              onSelect={() => {
+                setSelectedChannelId("");
+                close();
+              }}
+              icon={<Icon name="layers" size={16} />}
+            >
+              Todos os canais
+            </MenuItem>
+            {channels.map((channel) => (
+              <MenuItem
+                key={channel.id}
+                checked={selectedChannelId === channel.id}
+                onSelect={() => {
+                  setSelectedChannelId(channel.id);
+                  close();
+                }}
+                icon={<ChannelColorDot color={channel.color} />}
+              >
+                {channel.name}
+              </MenuItem>
+            ))}
+          </>
+        )}
+      </Popover>
     </div>
   );
 }

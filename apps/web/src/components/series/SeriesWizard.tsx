@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Icon } from "@/components/ui/Icon";
 import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
@@ -282,10 +283,12 @@ export function SeriesWizard() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <WizardStepper step={step} />
 
-      <section aria-labelledby="wizard-step-heading" className="flex flex-col gap-5 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4 sm:p-6">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
+      <div className="flex flex-col rounded-xl border border-border bg-surface shadow-card dark:shadow-none dark:ring-1 dark:ring-white/5">
+      <section aria-labelledby="wizard-step-heading" className="flex flex-col gap-5 p-4 sm:p-6">
         <h2
           id="wizard-step-heading"
           ref={headingRef}
@@ -369,18 +372,24 @@ export function SeriesWizard() {
         ) : null}
       </section>
 
-      <div className="sticky bottom-0 -mx-1 flex items-center justify-between gap-3 border-t border-border bg-surface/95 px-1 py-3 backdrop-blur">
-        <button
-          type="button"
-          onClick={() => {
-            setBanner(null);
-            setStep((s) => Math.max(1, s - 1));
-          }}
-          disabled={step === 1 || submitting}
-          className={secondaryButton}
-        >
-          Voltar
-        </button>
+      <div className="flex items-center justify-between gap-3 border-t border-border p-4 sm:px-6">
+        {step === 1 ? (
+          <Link href="/series" className="btn btn-secondary">
+            Cancelar
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setBanner(null);
+              setStep((s) => Math.max(1, s - 1));
+            }}
+            disabled={submitting}
+            className={secondaryButton}
+          >
+            Voltar
+          </button>
+        )}
         {step < 5 ? (
           <button type="button" onClick={goNext} className={primaryButton}>
             Continuar
@@ -404,6 +413,29 @@ export function SeriesWizard() {
           </div>
         )}
       </div>
+      </div>
+
+      <aside aria-label="Estimativa de custo" className="rounded-xl border border-border bg-surface p-4 shadow-card dark:shadow-none dark:ring-1 dark:ring-white/5 lg:sticky lg:top-6">
+        <p className="text-sm font-semibold text-fg">Custo estimado</p>
+        {currentEstimate ? (
+          <dl className="mt-2 flex flex-col gap-2 text-sm">
+            <div>
+              <dt className="text-fg-subtle">Por episódio</dt>
+              <dd className="text-lg font-semibold tabular-nums text-fg">{formatUsd(currentEstimate.per_episode_usd)}</dd>
+            </div>
+            <div>
+              <dt className="text-fg-subtle">Temporada (20 episódios)</dt>
+              <dd className="text-lg font-semibold tabular-nums text-fg">{formatUsd(currentEstimate.season_usd)}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="mt-2 text-sm text-fg-muted">
+            {step < 2 ? "Aparece a partir do passo 2, quando você escolhe o estilo." : "Calculando…"}
+          </p>
+        )}
+        <p className="mt-3 text-xs text-fg-subtle">Você só gasta depois de aprovar o plano e iniciar a série.</p>
+      </aside>
+      </div>
     </div>
   );
 }
@@ -411,28 +443,39 @@ export function SeriesWizard() {
 function WizardStepper({ step }: { step: number }) {
   return (
     <>
-      <p className="text-sm font-medium text-fg-muted md:hidden">
-        Passo {step} de 5 — {STEP_TITLES[step - 1]}
-      </p>
-      <ol className="hidden items-center gap-2 md:flex" aria-label="Passos">
+      <div className="md:hidden">
+        <p className="text-sm font-medium text-fg-muted">
+          Passo {step} de 5 · <span className="text-fg">{STEP_TITLES[step - 1]}</span>
+        </p>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border" aria-hidden="true">
+          <div className="h-full rounded-full bg-primary transition-all motion-reduce:transition-none" style={{ width: `${(step / 5) * 100}%` }} />
+        </div>
+      </div>
+      <ol className="hidden items-start md:flex" aria-label="Passos">
         {STEP_TITLES.map((title, i) => {
           const n = i + 1;
           const current = n === step;
+          const done = n < step;
           return (
-            <li key={title} aria-current={current ? "step" : undefined} className="flex flex-1 items-center gap-2">
-              <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                  current
-                    ? "bg-primary text-white"
-                    : n < step
-                      ? "bg-emerald-600 text-white"
-                      : "bg-border text-fg-muted"
-                }`}
-              >
-                <span aria-hidden="true">{n < step ? "✓" : n}</span>
-                <span className="sr-only">{n < step ? "Concluído: passo " : "Passo "}{n}</span>
-              </span>
-              <span className={`text-xs ${current ? "font-semibold text-fg" : "text-fg-muted"}`}>{title}</span>
+            <li key={title} aria-current={current ? "step" : undefined} className="flex flex-1 flex-col gap-2 last:flex-none">
+              <div className="flex items-center">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                    current
+                      ? "bg-primary text-white ring-4 ring-primary/20"
+                      : done
+                        ? "bg-primary text-white"
+                        : "border border-border-strong bg-surface text-fg-muted"
+                  }`}
+                >
+                  {done ? <Icon name="check" size={16} /> : <span aria-hidden="true">{n}</span>}
+                  <span className="sr-only">{done ? "Concluído: passo " : "Passo "}{done ? n : ""}</span>
+                </span>
+                {i < STEP_TITLES.length - 1 ? (
+                  <span aria-hidden="true" className={`mx-2 h-0.5 flex-1 rounded ${done ? "bg-primary" : "bg-border"}`} />
+                ) : null}
+              </div>
+              <span className={`text-sm ${current ? "font-semibold text-fg" : "text-fg-muted"}`}>{title}</span>
             </li>
           );
         })}
@@ -497,7 +540,7 @@ function StepIdea({
             aria-invalid={errors.premise ? true : undefined}
             className={inputClass}
           />
-          {missing > 0 && len > 0 ? <p className="text-xs text-amber-700 dark:text-amber-300">Faltam {missing} caracteres</p> : null}
+          {missing > 0 && len > 0 ? <p className="text-xs text-warning">Faltam {missing} caracteres</p> : null}
           <span aria-live="polite" className="sr-only">
             {announce}
           </span>

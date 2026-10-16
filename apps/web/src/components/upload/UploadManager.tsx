@@ -22,7 +22,10 @@ import {
   hasAcceptedExtension,
 } from "@/lib/tus";
 import { AnalyzeDialog } from "@/components/upload/AnalyzeDialog";
+import { Button } from "@/components/ui/Button";
+import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Dialog } from "@/components/ui/Dialog";
+import { MoreMenu } from "@/components/ui/MoreMenu";
 import { useToast } from "@/components/ui/Toast";
 
 const CHUNK_SIZE = 50 * 1024 * 1024; // ~50MB per spec
@@ -286,6 +289,15 @@ export function UploadManager() {
 
   const uploadDisabled = !selectedSourceId;
 
+  const assetColumns: Column<MediaAsset>[] = [
+    { id: "file", header: "Arquivo", primary: true, cell: (a) => a.filename },
+    { id: "source", header: "Fonte", cell: (a) => sourceById.get(a.source_id)?.title ?? a.source_id },
+    { id: "channel", header: "Canal", cell: (a) => channels.find((c) => c.id === a.channel_id)?.name ?? "—" },
+    ...(showOwner ? [{ id: "owner", header: "Dono", cell: (a: MediaAsset) => ownerLabel(a.owner_id) }] : []),
+    { id: "status", header: "Status", cell: (a) => MEDIA_ASSET_STATUS_LABELS[a.status] },
+    { id: "created", header: "Recebido em", cell: (a) => new Date(a.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <div aria-live="polite" className="sr-only">
@@ -431,13 +443,9 @@ export function UploadManager() {
           <h2 id="received-heading" className="text-base font-semibold text-fg">
             Uploads recebidos
           </h2>
-          <button
-            type="button"
-            onClick={() => loadAssets()}
-            className="text-sm font-medium text-primary-text hover:underline focus-ring"
-          >
+          <Button variant="ghost" size="sm" onClick={() => loadAssets()}>
             Atualizar
-          </button>
+          </Button>
         </div>
 
         {assetsLoading ? (
@@ -447,84 +455,36 @@ export function UploadManager() {
             {assetsError}
           </p>
         ) : assets.length === 0 ? (
-          <p className="text-sm text-fg-subtle">Nenhum upload recebido ainda.</p>
+          <p className="rounded-xl border border-dashed border-border-strong bg-surface p-6 text-center text-sm text-fg-muted">Nenhum upload recebido ainda. Escolha uma fonte acima e envie o primeiro vídeo.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
-            <table className="min-w-full divide-y divide-border text-sm">
-              <caption className="sr-only">Arquivos já recebidos pelo servidor</caption>
-              <thead className="bg-surface-2">
-                <tr>
-                  <th scope="col" className={thClass}>
-                    Arquivo
-                  </th>
-                  <th scope="col" className={thClass}>
-                    Fonte
-                  </th>
-                  <th scope="col" className={thClass}>
-                    Canal
-                  </th>
-                  {showOwner ? (
-                    <th scope="col" className={thClass}>
-                      Dono
-                    </th>
-                  ) : null}
-                  <th scope="col" className={thClass}>
-                    Status
-                  </th>
-                  <th scope="col" className={thClass}>
-                    Recebido em
-                  </th>
-                  <th scope="col" className={thClass}>
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y bg-surface divide-border">
-                {assets.map((asset) => (
-                  <tr key={asset.id}>
-                    <td className={tdClass}>{asset.filename}</td>
-                    <td className={tdClass}>
-                      {sourceById.get(asset.source_id)?.title ?? asset.source_id}
-                    </td>
-                    <td className={tdClass}>
-                      {channels.find((c) => c.id === asset.channel_id)?.name ?? "—"}
-                    </td>
-                    {showOwner ? <td className={tdClass}>{ownerLabel(asset.owner_id)}</td> : null}
-                    <td className={tdClass}>{MEDIA_ASSET_STATUS_LABELS[asset.status]}</td>
-                    <td className={tdClass}>
-                      {new Date(asset.created_at).toLocaleString("pt-BR")}
-                    </td>
-                    <td className={`${tdClass} space-x-3 whitespace-nowrap`}>
-                      <button
-                        type="button"
-                        onClick={() => setVideoTarget(asset)}
-                        className="font-medium text-primary-text hover:underline"
-                      >
-                        Ver vídeo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAnalyzeTarget(asset)}
-                        className="font-medium text-primary-text hover:underline"
-                      >
-                        Analisar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPendingChannelId(asset.channel_id ?? "");
-                          setChannelChangeTarget(asset);
-                        }}
-                        className="font-medium text-primary-text hover:underline"
-                      >
-                        Trocar canal
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            caption="Arquivos já recebidos pelo servidor"
+            columns={assetColumns}
+            rows={assets}
+            rowKey={(a) => a.id}
+            actions={(asset) => (
+              <>
+                <Button size="sm" onClick={() => setAnalyzeTarget(asset)}>
+                  Analisar<span className="sr-only"> {asset.filename}</span>
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setVideoTarget(asset)}>
+                  Ver vídeo<span className="sr-only"> {asset.filename}</span>
+                </Button>
+                <MoreMenu
+                  label={asset.filename}
+                  items={[
+                    {
+                      label: "Trocar canal",
+                      onSelect: () => {
+                        setPendingChannelId(asset.channel_id ?? "");
+                        setChannelChangeTarget(asset);
+                      },
+                    },
+                  ]}
+                />
+              </>
+            )}
+          />
         )}
       </section>
 
@@ -614,10 +574,6 @@ export function UploadManager() {
     </div>
   );
 }
-
-const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted";
-const tdClass = "px-4 py-3 text-fg";
 
 const STATUS_LABELS: Record<UploadStatus, string> = {
   queued: "Na fila",

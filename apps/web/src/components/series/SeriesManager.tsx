@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Icon } from "@/components/ui/Icon";
 import { useMemo, useState } from "react";
 import { useOwnerLabel, useShowOwnerColumn } from "@/lib/admin-view";
 import { useChannelContext } from "@/lib/channel-context";
@@ -70,9 +71,6 @@ export function SeriesManager() {
             ))}
           </select>
         </div>
-        <Link href="/series/nova" className={primaryButton}>
-          + Nova série
-        </Link>
       </div>
 
       {polling.offline ? <Notice tone="warning" role="status">Sem conexão. Tentando de novo…</Notice> : null}
@@ -155,7 +153,7 @@ function SeriesCard({
     <li>
       <Link
         href={`/series/${series.id}`}
-        className="flex h-full flex-col gap-2 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4 hover:border-indigo-400 focus-ring"
+        className="flex h-full flex-col gap-2 rounded-xl border border-border bg-surface shadow-card dark:shadow-none p-4 hover:border-primary focus-ring"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5 text-xs text-fg-muted">
@@ -168,7 +166,7 @@ function SeriesCard({
         {ownerText ? <p className="text-xs text-fg-subtle">Dono: {ownerText}</p> : null}
 
         {series.status === "paused" && series.pause_reason ? (
-          <p className="rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="rounded-lg bg-warning-soft px-2 py-1 text-xs text-fg">
             {PAUSE_REASON_LABELS[series.pause_reason]}
           </p>
         ) : null}
@@ -202,8 +200,8 @@ function SeriesCard({
         ) : null}
 
         {attention > 0 ? (
-          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-            <span aria-hidden="true">⚠ </span>
+          <p className="flex items-center gap-1.5 text-sm font-medium text-warning">
+            <Icon name="alert" size={14} />
             {attention === 1 ? "1 episódio precisa de atenção" : `${attention} episódios precisam de atenção`}
           </p>
         ) : null}

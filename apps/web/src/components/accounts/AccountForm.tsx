@@ -238,7 +238,7 @@ export function AccountForm({
           Conta monetizada
         </label>
       </div>
-      <p className="text-xs text-amber-700 dark:text-amber-300">
+      <p className="text-xs text-warning">
         Contas monetizadas têm mais restrições no crivo de direitos autorais (ex.: bloqueiam
         licenças CC BY-NC).
       </p>

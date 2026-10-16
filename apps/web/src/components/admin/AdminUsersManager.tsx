@@ -17,16 +17,19 @@ import { useAdminView } from "@/lib/admin-view";
 import { generateStrongPassword } from "@/lib/password";
 import { formatBytes } from "@/lib/tus";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Dialog } from "@/components/ui/Dialog";
+import { Icon } from "@/components/ui/Icon";
+import { MoreMenu } from "@/components/ui/MoreMenu";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { UsageBar } from "@/components/ui/UsageBar";
 import { UserFormDialog } from "@/components/admin/UserFormDialog";
 
-const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted";
-const tdClass = "px-4 py-3 align-top text-fg";
 
 export function AdminUsersManager() {
   const { users, loadingUsers, reloadUsers } = useAdminView();
@@ -76,115 +79,110 @@ export function AdminUsersManager() {
     }
   }
 
+  const columns: Column<AdminUserRead>[] = [
+    {
+      id: "user",
+      header: "Usuário",
+      primary: true,
+      cell: (u) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="font-medium text-fg">{displayNameOf(u)}</span>
+          <span className="text-xs font-normal text-fg-subtle">
+            {u.username}
+            {u.email ? ` · ${u.email}` : ""}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: "status",
+      header: "Papel e status",
+      cell: (u) => (
+        <div className="flex flex-wrap gap-1.5">
+          {u.is_admin ? <Badge variant="primary">Admin</Badge> : <Badge variant="neutral">Usuário</Badge>}
+          <Badge variant={u.is_active ? "success" : "neutral"} dot>
+            {u.is_active ? "Ativo" : "Inativo"}
+          </Badge>
+          {u.must_change_password ? <Badge variant="warning">Troca de senha pendente</Badge> : null}
+        </div>
+      ),
+    },
+    {
+      id: "usage",
+      header: "Uso",
+      className: "min-w-[14rem]",
+      cell: (u) => (
+        <div className="flex flex-col gap-1.5">
+          {u.is_admin ? (
+            <span className="text-xs text-fg-subtle">Armazenamento sem limite</span>
+          ) : (
+            <UsageBar
+              label="Armazenamento"
+              used={u.usage.storage_used_bytes}
+              quota={u.usage.storage_quota_bytes}
+              formatValue={(v) => formatBytes(v)}
+            />
+          )}
+          <p className="text-xs text-fg-subtle">
+            {u.is_admin
+              ? `IA no mês: ${formatUsd(u.usage.ai_spend_month_usd ?? 0)}`
+              : `Análises hoje ${u.usage.analyses_today}${u.usage.daily_analysis_quota != null ? `/${u.usage.daily_analysis_quota}` : ""} · Canais ${u.usage.channels_count}${u.usage.max_channels != null ? `/${u.usage.max_channels}` : ""} · Séries ativas ${u.usage.active_series ?? 0}${u.usage.max_active_series != null ? `/${u.usage.max_active_series}` : ""} · IA no mês ${formatUsd(u.usage.ai_spend_month_usd ?? 0)}${u.usage.monthly_ai_budget_usd != null ? `/${formatUsd(u.usage.monthly_ai_budget_usd)}` : ""}`}
+          </p>
+        </div>
+      ),
+    },
+    { id: "content", header: "Cortes / Publicações", numeric: true, cell: (u) => `${u.clips_count} / ${u.publications_count}` },
+  ];
+
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="btn btn-primary"
-        >
-          + Novo usuário
-        </button>
-      </div>
+    <div className="flex flex-col">
+      <PageHeader
+        title="Usuários"
+        description="Gerencie contas, cotas e permissões de acesso ao painel."
+        actions={
+          <Button onClick={() => setCreating(true)}>
+            <Icon name="plus" size={16} /> Novo usuário
+          </Button>
+        }
+      />
 
       {loadingUsers ? (
         <SkeletonList rows={4} />
       ) : users.length === 0 ? (
-        <EmptyState title="Nenhum usuário cadastrado" description="Crie o primeiro usuário do sistema." />
+        <EmptyState
+          icon="users"
+          title="Nenhum usuário cadastrado"
+          description="Crie o primeiro usuário do sistema."
+          action={<Button onClick={() => setCreating(true)}>Novo usuário</Button>}
+        />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <caption className="sr-only">Usuários do sistema</caption>
-            <thead className="bg-surface-2">
-              <tr>
-                <th scope="col" className={thClass}>Usuário</th>
-                <th scope="col" className={thClass}>Status</th>
-                <th scope="col" className={thClass}>Armazenamento</th>
-                <th scope="col" className={thClass}>Análises hoje</th>
-                <th scope="col" className={thClass}>Canais</th>
-                <th scope="col" className={thClass}>Séries IA ativas</th>
-                <th scope="col" className={thClass}>IA no mês</th>
-                <th scope="col" className={thClass}>Cortes / Publicações</th>
-                <th scope="col" className={thClass}>Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y bg-surface divide-border">
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td className={tdClass}>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">{displayNameOf(u)}</span>
-                      <span className="text-xs text-fg-subtle">{u.username}</span>
-                      {u.email ? <span className="text-xs text-fg-subtle">{u.email}</span> : null}
-                    </div>
-                  </td>
-                  <td className={tdClass}>
-                    <div className="flex flex-wrap gap-1.5">
-                      {u.is_admin ? <Badge variant="info">Admin</Badge> : null}
-                      <Badge variant={u.is_active ? "success" : "neutral"}>{u.is_active ? "Ativo" : "Inativo"}</Badge>
-                      {u.must_change_password ? <Badge variant="warning">Troca de senha pendente</Badge> : null}
-                    </div>
-                  </td>
-                  <td className={`${tdClass} min-w-[10rem]`}>
-                    {u.is_admin ? (
-                      <span className="text-xs text-fg-subtle">sem limite</span>
-                    ) : (
-                      <UsageBar
-                        label=""
-                        used={u.usage.storage_used_bytes}
-                        quota={u.usage.storage_quota_bytes}
-                        formatValue={(v) => formatBytes(v)}
-                      />
-                    )}
-                  </td>
-                  <td className={tdClass}>
-                    {u.is_admin ? "—" : `${u.usage.analyses_today}${u.usage.daily_analysis_quota != null ? ` / ${u.usage.daily_analysis_quota}` : ""}`}
-                  </td>
-                  <td className={tdClass}>
-                    {u.is_admin ? "—" : `${u.usage.channels_count}${u.usage.max_channels != null ? ` / ${u.usage.max_channels}` : ""}`}
-                  </td>
-                  <td className={tdClass}>
-                    {u.is_admin ? "—" : `${u.usage.active_series ?? 0}${u.usage.max_active_series != null ? ` / ${u.usage.max_active_series}` : ""}`}
-                  </td>
-                  <td className={tdClass}>
-                    {formatUsd(u.usage.ai_spend_month_usd ?? 0)}
-                    {!u.is_admin && u.usage.monthly_ai_budget_usd != null ? ` / ${formatUsd(u.usage.monthly_ai_budget_usd)}` : ""}
-                  </td>
-                  <td className={tdClass}>
-                    {u.clips_count} / {u.publications_count}
-                  </td>
-                  <td className={`${tdClass} space-x-3 whitespace-nowrap`}>
-                    <button
-                      type="button"
-                      onClick={() => setEditTarget(u)}
-                      className="font-medium text-primary-text hover:underline"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setResetTarget(u)}
-                      className="font-medium text-primary-text hover:underline"
-                    >
-                      Redefinir senha
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeleteError(null);
-                        setDeleteTarget(u);
-                      }}
-                      className="font-medium text-danger hover:underline"
-                    >
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          caption="Usuários do sistema"
+          columns={columns}
+          rows={users}
+          rowKey={(u) => u.id}
+          actions={(u) => (
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setEditTarget(u)}>
+                Editar<span className="sr-only"> {displayNameOf(u)}</span>
+              </Button>
+              <MoreMenu
+                label={displayNameOf(u)}
+                items={[
+                  { label: "Redefinir senha", onSelect: () => setResetTarget(u) },
+                  {
+                    label: "Excluir",
+                    danger: true,
+                    onSelect: () => {
+                      setDeleteError(null);
+                      setDeleteTarget(u);
+                    },
+                  },
+                ]}
+              />
+            </>
+          )}
+        />
       )}
 
       {creating ? <UserFormDialog mode="create" onSubmit={handleCreate} onClose={() => setCreating(false)} /> : null}
@@ -195,40 +193,24 @@ export function AdminUsersManager() {
 
       <ResetPasswordDialog target={resetTarget} onClose={() => setResetTarget(null)} />
 
-      <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)} title="Excluir usuário">
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir usuário"
+        confirmLabel="Confirmar"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      >
         {deleteTarget ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-fg-muted">
-              Excluir <span className="font-semibold">{displayNameOf(deleteTarget)}</span>? Se o usuário já tiver
-              dados (fontes, uploads, canais, cortes, contas ou publicações), ele será apenas{" "}
-              <span className="font-semibold">desativado</span> em vez de excluído — os dados nunca são apagados
-              silenciosamente.
-            </p>
-            {deleteError ? (
-              <p role="alert" className="text-sm text-danger">
-                {deleteError}
-              </p>
-            ) : null}
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="btn btn-danger"
-              >
-                {deleting ? "Processando…" : "Confirmar"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="btn btn-secondary"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
+          <>
+            Excluir <span className="font-semibold text-fg">{displayNameOf(deleteTarget)}</span>? Se o usuário já tiver
+            dados (fontes, uploads, canais, cortes, contas ou publicações), ele será apenas{" "}
+            <span className="font-semibold text-fg">desativado</span> em vez de excluído — os dados nunca são apagados
+            silenciosamente.
+          </>
         ) : null}
-      </Dialog>
+      </ConfirmDialog>
     </div>
   );
 }

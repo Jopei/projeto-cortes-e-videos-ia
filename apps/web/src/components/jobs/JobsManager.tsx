@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
@@ -135,28 +134,20 @@ export function JobsManager() {
                       </span>
                     ) : null}
                   </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <Link
-                      href={`/cortes/revisao?job_id=${job.id}`}
-                      className="font-medium text-primary-text hover:underline"
-                    >
+                  <div className="flex items-center gap-2 text-sm">
+                    <Button href={`/cortes/revisao?job_id=${job.id}`} variant="secondary" size="sm">
                       Ver cortes
-                    </Link>
+                    </Button>
                     {JOB_ACTIVE_STATUSES.includes(job.status) ? (
-                      <button
-                        type="button"
-                        onClick={() => handleCancel(job)}
-                        disabled={cancelingId === job.id}
-                        className="font-medium text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                      >
+                      <Button variant="danger-outline" size="sm" onClick={() => handleCancel(job)} disabled={cancelingId === job.id}>
                         {cancelingId === job.id ? "Cancelando…" : "Cancelar"}
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </div>
 
                 {job.stage ? (
-                  <p className="text-xs text-fg-subtle">Estágio: {job.stage}</p>
+                  <p className="text-sm text-fg-muted">Estágio: {job.stage}</p>
                 ) : null}
 
                 <div
@@ -169,14 +160,14 @@ export function JobsManager() {
                 >
                   <div
                     className={`h-full rounded-full transition-all ${
-                      job.status === "failed" ? "bg-red-500" : "bg-primary"
+                      job.status === "failed" ? "bg-danger" : "bg-primary"
                     }`}
                     style={{ width: `${job.progress}%` }}
                   />
                 </div>
 
                 {job.error ? (
-                  <p role="alert" className="text-xs text-danger">
+                  <p role="alert" className="text-sm text-danger">
                     {job.error}
                   </p>
                 ) : null}

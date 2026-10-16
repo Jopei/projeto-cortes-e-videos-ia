@@ -1,10 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { useOwnerLabel, useShowOwnerColumn } from "@/lib/admin-view";
 import { listAuditLog, type AuditLogEntry } from "@/lib/audit-log";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Callout } from "@/components/ui/Callout";
+import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { SkeletonList } from "@/components/ui/Skeleton";
 
 const PAGE_SIZE = 50;
@@ -14,6 +20,7 @@ export function AuditLogManager() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const showOwner = useShowOwnerColumn();
   const ownerLabel = useOwnerLabel();
 
@@ -37,78 +44,93 @@ export function AuditLogManager() {
     return () => controller.abort();
   }, [offset, load]);
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter((e) => `${e.action} ${e.entity} ${JSON.stringify(e.details ?? {})}`.toLowerCase().includes(q));
+  }, [entries, query]);
+
+  const columns: Column<AuditLogEntry>[] = [
+    { id: "date", header: "Data", primary: true, cell: (e) => new Date(e.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" }) },
+    ...(showOwner ? [{ id: "user", header: "Usuário", cell: (e: AuditLogEntry) => ownerLabel(e.user_id) }] : []),
+    { id: "action", header: "Ação", cell: (e) => <Badge variant="neutral">{e.action}</Badge> },
+    {
+      id: "entity",
+      header: "Entidade",
+      cell: (e) => (
+        <>
+          {e.entity}
+          {e.entity_id ? <span className="font-mono text-xs text-fg-subtle"> #{e.entity_id.slice(0, 8)}</span> : null}
+        </>
+      ),
+    },
+    {
+      id: "details",
+      header: "Detalhes",
+      className: "max-w-md",
+      cell: (e) =>
+        e.details && Object.keys(e.details).length > 0 ? (
+          <details className="group">
+            <summary className="focus-ring inline-flex min-h-[40px] cursor-pointer md:min-h-[32px] list-none items-center gap-1 rounded text-sm font-medium text-primary-text">
+              <Icon name="chevronRight" size={14} className="transition-transform group-open:rotate-90" /> Ver JSON
+            </summary>
+            <pre className="mt-2 max-h-60 overflow-auto rounded-lg bg-surface-2 p-3 font-mono text-xs text-fg-muted">
+              {JSON.stringify(e.details, null, 2)}
+            </pre>
+          </details>
+        ) : (
+          "—"
+        ),
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col">
+      <PageHeader
+        title="Auditoria"
+        description="Histórico de ações relevantes do sistema (jobs, cortes, publicações, contas e canais)."
+      />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label htmlFor="audit-search" className="text-sm font-medium text-fg">
+          Filtrar nesta página
+        </label>
+        <input
+          id="audit-search"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="ação, entidade ou detalhe"
+          className="field-control w-full max-w-xs"
+        />
+      </div>
+
       {loading ? (
         <SkeletonList rows={6} />
       ) : error ? (
-        <p role="alert" className="text-sm text-danger">
+        <Callout variant="danger" role="alert" title="Não foi possível carregar o log" action={<Button variant="secondary" size="sm" onClick={() => void load(offset)}>Tentar de novo</Button>}>
           {error}
-        </p>
-      ) : entries.length === 0 ? (
-        <EmptyState title="Nenhum registro de auditoria" description="Ações relevantes do sistema aparecerão aqui." />
+        </Callout>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon="history"
+          title={entries.length === 0 ? "Nenhum registro de auditoria" : "Nenhum registro com esse filtro"}
+          description="Ações relevantes do sistema aparecerão aqui."
+          action={entries.length > 0 ? <Button variant="secondary" onClick={() => setQuery("")}>Limpar filtro</Button> : undefined}
+        />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <caption className="sr-only">Log de auditoria</caption>
-            <thead className="bg-surface-2">
-              <tr>
-                <th scope="col" className={thClass}>Data</th>
-                {showOwner ? <th scope="col" className={thClass}>Usuário</th> : null}
-                <th scope="col" className={thClass}>Ação</th>
-                <th scope="col" className={thClass}>Entidade</th>
-                <th scope="col" className={thClass}>Detalhes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y bg-surface divide-border">
-              {entries.map((entry) => (
-                <tr key={entry.id}>
-                  <td className={tdClass}>{new Date(entry.created_at).toLocaleString("pt-BR")}</td>
-                  {showOwner ? <td className={tdClass}>{ownerLabel(entry.user_id)}</td> : null}
-                  <td className={tdClass}>{entry.action}</td>
-                  <td className={tdClass}>
-                    {entry.entity}
-                    {entry.entity_id ? <span className="text-xs text-fg-subtle"> #{entry.entity_id.slice(0, 8)}</span> : null}
-                  </td>
-                  <td className={`${tdClass} max-w-md`}>
-                    {entry.details ? (
-                      <code className="block truncate text-xs text-fg-subtle" title={JSON.stringify(entry.details)}>
-                        {JSON.stringify(entry.details)}
-                      </code>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Log de auditoria" columns={columns} rows={filtered} rowKey={(e) => e.id} />
       )}
 
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))}
-          disabled={offset === 0}
-          className="btn btn-secondary btn-sm"
-        >
-          ← Anterior
-        </button>
-        <span className="text-xs text-fg-subtle">Página {Math.floor(offset / PAGE_SIZE) + 1}</span>
-        <button
-          type="button"
-          onClick={() => setOffset((prev) => prev + PAGE_SIZE)}
-          disabled={entries.length < PAGE_SIZE}
-          className="btn btn-secondary btn-sm"
-        >
-          Próxima →
-        </button>
+      <div className="mt-4 flex items-center justify-between">
+        <Button variant="secondary" size="sm" onClick={() => setOffset((prev) => Math.max(0, prev - PAGE_SIZE))} disabled={offset === 0}>
+          <Icon name="chevronLeft" size={16} /> Anterior
+        </Button>
+        <span className="text-sm text-fg-muted">Página {Math.floor(offset / PAGE_SIZE) + 1}</span>
+        <Button variant="secondary" size="sm" onClick={() => setOffset((prev) => prev + PAGE_SIZE)} disabled={entries.length < PAGE_SIZE}>
+          Próxima <Icon name="chevronRight" size={16} />
+        </Button>
       </div>
     </div>
   );
 }
-
-const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted";
-const tdClass = "px-4 py-3 text-fg";

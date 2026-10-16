@@ -1,7 +1,7 @@
 "use client";
 
 import { AiBadge } from "@/components/series/badges";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { useShowOwnerColumn, useOwnerLabel } from "@/lib/admin-view";
 import { useChannelContext } from "@/lib/channel-context";
@@ -16,8 +16,13 @@ import {
   type Publication,
   type PublicationStatus,
 } from "@/lib/publications";
-import { Dialog } from "@/components/ui/Dialog";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Callout } from "@/components/ui/Callout";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { DataTable, type Column } from "@/components/ui/DataTable";
+import { Icon } from "@/components/ui/Icon";
+import { MoreMenu, type MoreMenuItem } from "@/components/ui/MoreMenu";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { PublicationStatusBadge } from "@/components/ui/StatusBadges";
@@ -35,6 +40,10 @@ const STATUS_OPTIONS: (PublicationStatus | "")[] = [
   "exported",
 ];
 
+function fmt(value: string | null): string {
+  return value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+}
+
 export function PublicacoesManager() {
   const { selectedChannelId } = useChannelContext();
   const { showToast } = useToast();
@@ -42,25 +51,19 @@ export function PublicacoesManager() {
   const ownerLabel = useOwnerLabel();
   const [statusFilter, setStatusFilter] = useState<PublicationStatus | "">("");
   const [platformFilter, setPlatformFilter] = useState<PlatformValue | "">("");
-  const [publications, setPublications] = useState<Publication[]>([]);
+  const [all, setAll] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [takedownTarget, setTakedownTarget] = useState<Publication | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Publication | null>(null);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setLoading(true);
       setError(null);
       try {
-        const data = await listPublications(
-          {
-            channel_id: selectedChannelId || undefined,
-            status: statusFilter || undefined,
-          },
-          signal,
-        );
-        setPublications(platformFilter ? data.filter((p) => p.platform === platformFilter) : data);
+        setAll(await listPublications({ channel_id: selectedChannelId || undefined }, signal));
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof ApiError ? err.message : "Não foi possível carregar as publicações.");
@@ -68,21 +71,31 @@ export function PublicacoesManager() {
         setLoading(false);
       }
     },
-    [selectedChannelId, statusFilter, platformFilter],
+    [selectedChannelId],
   );
 
   useEffect(() => {
     const controller = new AbortController();
-    load(controller.signal);
+    void load(controller.signal);
     return () => controller.abort();
   }, [load]);
 
-  async function handleCancel(pub: Publication) {
-    setActioningId(pub.id);
+  const byPlatform = useMemo(() => (platformFilter ? all.filter((p) => p.platform === platformFilter) : all), [all, platformFilter]);
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const p of byPlatform) c[p.status] = (c[p.status] ?? 0) + 1;
+    return c;
+  }, [byPlatform]);
+  const publications = useMemo(() => (statusFilter ? byPlatform.filter((p) => p.status === statusFilter) : byPlatform), [byPlatform, statusFilter]);
+
+  async function handleCancel() {
+    if (!cancelTarget) return;
+    setActioningId(cancelTarget.id);
     try {
-      await cancelPublication(pub.id);
+      await cancelPublication(cancelTarget.id);
       showToast("Publicação cancelada.", "success");
-      load();
+      setCancelTarget(null);
+      void load();
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : "Erro ao cancelar publicação.", "error");
     } finally {
@@ -97,7 +110,7 @@ export function PublicacoesManager() {
       await takedownPublication(takedownTarget.id);
       showToast("Solicitação de retirada do ar enviada.", "success");
       setTakedownTarget(null);
-      load();
+      void load();
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : "Erro ao retirar do ar.", "error");
     } finally {
@@ -105,28 +118,98 @@ export function PublicacoesManager() {
     }
   }
 
+  const columns: Column<Publication>[] = [
+    { id: "platform", header: "Plataforma", primary: true, cell: (p) => PLATFORM_LABELS[p.platform] },
+    ...(showOwner ? [{ id: "owner", header: "Dono", cell: (p: Publication) => ownerLabel(p.owner_id) }] : []),
+    {
+      id: "status",
+      header: "Status",
+      cell: (p) => (
+        <span className="flex flex-wrap items-center gap-1.5">
+          <PublicationStatusBadge status={p.status} />
+          {p.synthetic_media ? <AiBadge /> : null}
+        </span>
+      ),
+    },
+    { id: "scheduled", header: "Agendado para", cell: (p) => fmt(p.scheduled_at) },
+    { id: "published", header: "Publicado em", cell: (p) => fmt(p.published_at) },
+    {
+      id: "issue",
+      header: "Erro / bloqueio",
+      className: "max-w-xs",
+      cell: (p) =>
+        p.block_reasons && p.block_reasons.length > 0 ? (
+          <div className="rounded-lg border border-danger/30 bg-danger-soft p-2 text-xs text-fg">
+            <p className="flex items-center gap-1 font-semibold text-danger">
+              <Icon name="shield" size={12} /> Bloqueado pelo rights gate
+            </p>
+            <ul className="mt-1 list-disc pl-4">
+              {p.block_reasons.map((r) => (
+                <li key={r}>{blockReasonLabel(r)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : p.error ? (
+          <span className="text-xs text-danger">{p.error}</span>
+        ) : (
+          "—"
+        ),
+    },
+  ];
+
+  function rowActions(pub: Publication) {
+    const menu: MoreMenuItem[] = [];
+    if (pub.status === "scheduled") menu.push({ label: "Cancelar agendamento", danger: true, disabled: actioningId === pub.id, onSelect: () => setCancelTarget(pub) });
+    if (pub.status === "published") menu.push({ label: "Retirar do ar", danger: true, onSelect: () => setTakedownTarget(pub) });
+    return (
+      <>
+        {pub.external_url ? (
+          <a href={pub.external_url} target="_blank" rel="noreferrer" className={buttonClasses("secondary", "sm")}>
+            Ver publicação
+          </a>
+        ) : null}
+        {pub.status === "exported" ? (
+          <a href={publicationExportUrl(pub.id)} className={buttonClasses("secondary", "sm")}>
+            Baixar pacote
+          </a>
+        ) : null}
+        {menu.length > 0 ? <MoreMenu label={`${PLATFORM_LABELS[pub.platform]}`} items={menu} /> : null}
+      </>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <label htmlFor="pub-status-filter" className="text-sm font-medium text-fg-muted">
-            Status
-          </label>
-          <select
-            id="pub-status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as PublicationStatus | "")}
-            className="field-control"
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s || "all"} value={s}>
-                {s ? PUBLICATION_STATUS_LABELS[s] : "Todos"}
-              </option>
-            ))}
-          </select>
+    <div className="flex flex-col">
+      <PageHeader
+        title="Publicações"
+        description="Histórico e status das publicações dos cortes aprovados em YouTube Shorts, TikTok, Bilibili, Reels e Vimeo."
+      />
+
+      <div className="mb-4 flex flex-col gap-3">
+        <div role="group" aria-label="Filtrar por status" className="flex gap-2 overflow-x-auto pb-1">
+          {STATUS_OPTIONS.map((s) => {
+            const active = statusFilter === s;
+            const n = s ? counts[s] ?? 0 : byPlatform.length;
+            return (
+              <button
+                key={s || "all"}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setStatusFilter(s)}
+                className={`focus-ring inline-flex min-h-[40px] shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors md:min-h-[36px] ${
+                  active
+                    ? "border-primary bg-primary-soft text-primary-text"
+                    : "border-border-strong bg-surface text-fg-muted hover:bg-surface-2"
+                }`}
+              >
+                {s ? PUBLICATION_STATUS_LABELS[s] : "Todas"}
+                <span className="tabular-nums text-xs text-fg-subtle">{n}</span>
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="pub-platform-filter" className="text-sm font-medium text-fg-muted">
+          <label htmlFor="pub-platform-filter" className="text-sm font-medium text-fg">
             Plataforma
           </label>
           <select
@@ -148,139 +231,52 @@ export function PublicacoesManager() {
       {loading ? (
         <SkeletonList rows={4} />
       ) : error ? (
-        <p role="alert" className="text-sm text-danger">
+        <Callout variant="danger" role="alert" title="Não foi possível carregar as publicações" action={<Button variant="secondary" size="sm" onClick={() => void load()}>Tentar de novo</Button>}>
           {error}
-        </p>
+        </Callout>
       ) : publications.length === 0 ? (
         <EmptyState
           icon="send"
           title="Nenhuma publicação encontrada"
-          description="Publique cortes aprovados na tela de Revisão para vê-los aqui."
-          action={<Button href="/cortes/revisao">Ir para Revisão</Button>}
+          description={all.length > 0 ? "Nenhuma publicação com esses filtros." : "Publique cortes aprovados na tela de Revisão para vê-los aqui."}
+          action={
+            all.length > 0 ? (
+              <Button variant="secondary" onClick={() => { setStatusFilter(""); setPlatformFilter(""); }}>
+                Limpar filtros
+              </Button>
+            ) : (
+              <Button href="/cortes/revisao">Ir para Revisão</Button>
+            )
+          }
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card dark:shadow-none">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <caption className="sr-only">Publicações</caption>
-            <thead className="bg-surface-2">
-              <tr>
-                <th scope="col" className={thClass}>Plataforma</th>
-                {showOwner ? <th scope="col" className={thClass}>Dono</th> : null}
-                <th scope="col" className={thClass}>Status</th>
-                <th scope="col" className={thClass}>Agendado para</th>
-                <th scope="col" className={thClass}>Publicado em</th>
-                <th scope="col" className={thClass}>Erro / bloqueio</th>
-                <th scope="col" className={thClass}>Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y bg-surface divide-border">
-              {publications.map((pub) => (
-                <tr key={pub.id}>
-                  <td className={tdClass}>{PLATFORM_LABELS[pub.platform]}</td>
-                  {showOwner ? <td className={tdClass}>{ownerLabel(pub.owner_id)}</td> : null}
-                  <td className={tdClass}>
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <PublicationStatusBadge status={pub.status} />
-                      {pub.synthetic_media ? <AiBadge /> : null}
-                    </span>
-                  </td>
-                  <td className={tdClass}>
-                    {pub.scheduled_at ? new Date(pub.scheduled_at).toLocaleString("pt-BR") : "—"}
-                  </td>
-                  <td className={tdClass}>
-                    {pub.published_at ? new Date(pub.published_at).toLocaleString("pt-BR") : "—"}
-                  </td>
-                  <td className={`${tdClass} max-w-xs`}>
-                    {pub.block_reasons && pub.block_reasons.length > 0 ? (
-                      <ul className="list-disc pl-4 text-xs text-danger">
-                        {pub.block_reasons.map((r) => (
-                          <li key={r}>{blockReasonLabel(r)}</li>
-                        ))}
-                      </ul>
-                    ) : pub.error ? (
-                      <span className="text-xs text-danger">{pub.error}</span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className={`${tdClass} space-x-3 whitespace-nowrap`}>
-                    {pub.external_url ? (
-                      <a
-                        href={pub.external_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium text-primary-text hover:underline"
-                      >
-                        Ver publicação
-                      </a>
-                    ) : null}
-                    {pub.status === "scheduled" ? (
-                      <button
-                        type="button"
-                        onClick={() => handleCancel(pub)}
-                        disabled={actioningId === pub.id}
-                        className="font-medium text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Cancelar
-                      </button>
-                    ) : null}
-                    {pub.status === "published" ? (
-                      <button
-                        type="button"
-                        onClick={() => setTakedownTarget(pub)}
-                        className="font-medium text-danger hover:underline"
-                      >
-                        Retirar do ar
-                      </button>
-                    ) : null}
-                    {pub.status === "exported" ? (
-                      <a
-                        href={publicationExportUrl(pub.id)}
-                        className="font-medium text-primary-text hover:underline"
-                      >
-                        Baixar pacote
-                      </a>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Publicações" columns={columns} rows={publications} rowKey={(p) => p.id} actions={rowActions} />
       )}
 
-      <Dialog open={takedownTarget !== null} onClose={() => setTakedownTarget(null)} title="Retirar do ar">
-        {takedownTarget ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-fg-muted">
-              Tem certeza de que deseja retirar esta publicação do ar em{" "}
-              <span className="font-semibold">{PLATFORM_LABELS[takedownTarget.platform]}</span>? A
-              plataforma será notificada para remover o post publicado.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleTakedown}
-                disabled={actioningId === takedownTarget.id}
-                className="btn btn-danger"
-              >
-                {actioningId === takedownTarget.id ? "Enviando…" : "Retirar do ar"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setTakedownTarget(null)}
-                className="btn btn-secondary"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </Dialog>
+      <ConfirmDialog
+        open={cancelTarget !== null}
+        title="Cancelar agendamento"
+        confirmLabel="Cancelar agendamento"
+        cancelLabel="Manter"
+        busy={actioningId !== null && actioningId === cancelTarget?.id}
+        onConfirm={handleCancel}
+        onCancel={() => setCancelTarget(null)}
+      >
+        A publicação em <span className="font-semibold text-fg">{cancelTarget ? PLATFORM_LABELS[cancelTarget.platform] : ""}</span> deixará de ser agendada.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={takedownTarget !== null}
+        title="Retirar do ar"
+        confirmLabel="Retirar do ar"
+        busy={actioningId !== null && actioningId === takedownTarget?.id}
+        onConfirm={handleTakedown}
+        onCancel={() => setTakedownTarget(null)}
+      >
+        Tem certeza de que deseja retirar esta publicação do ar em{" "}
+        <span className="font-semibold text-fg">{takedownTarget ? PLATFORM_LABELS[takedownTarget.platform] : ""}</span>? A
+        plataforma será notificada para remover o post publicado.
+      </ConfirmDialog>
     </div>
   );
 }
-
-const thClass =
-  "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted";
-const tdClass = "px-4 py-3 text-fg";

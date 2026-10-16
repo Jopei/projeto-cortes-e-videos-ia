@@ -1,4 +1,5 @@
 import { Badge, type BadgeVariant } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
 import {
   ARC_PHASE_LABELS,
   CHARACTER_STATUS_LABELS,
@@ -111,7 +112,7 @@ export function MediaJobStatusBadge({ status }: { status: MediaJobStatus }) {
 export function AiBadge({ label = "IA" }: { label?: string }) {
   return (
     <Badge variant="info" title="Conteúdo gerado por inteligência artificial">
-      <span aria-hidden="true">✦</span>
+      <Icon name="sparkles" size={12} />
       {label}
     </Badge>
   );
@@ -119,5 +120,5 @@ export function AiBadge({ label = "IA" }: { label?: string }) {
 
 export function PauseReasonNotice({ reason }: { reason: PauseReason | null }) {
   if (!reason) return null;
-  return <span className="text-xs text-amber-700 dark:text-amber-300">{PAUSE_REASON_LABELS[reason] ?? reason}</span>;
+  return <span className="text-xs text-warning">{PAUSE_REASON_LABELS[reason] ?? reason}</span>;
 }

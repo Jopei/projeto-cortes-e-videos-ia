@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { Icon } from "@/components/ui/Icon";
 import type { IntegrationHelp } from "@/lib/integration-help";
 import { useToast } from "@/components/ui/Toast";
 
 /**
- * Small "ⓘ" trigger next to a platform name that opens an anchored popover
+ * Small info trigger next to a platform name that opens an anchored popover
  * with step-by-step instructions on where to get API keys, plus the
  * redirect URI to register (copy button). Closes on Esc or outside click.
  * No portal/positioning library — clamps a fixed-position panel to the
@@ -71,9 +72,9 @@ export function PlatformHelpPopover({
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
-        className="flex h-5 w-5 items-center justify-center rounded-full border border-border-strong text-[11px] font-semibold text-fg-subtle hover:bg-surface-2 focus-ring"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle hover:bg-surface-2 hover:text-fg focus-ring"
       >
-        <span aria-hidden="true">ⓘ</span>
+        <Icon name="info" size={14} />
       </button>
 
       {open ? (
@@ -92,9 +93,9 @@ export function PlatformHelpPopover({
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Fechar"
-              className="shrink-0 rounded-lg p-1 text-fg-subtle hover:bg-surface-2"
+              className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-fg-subtle hover:bg-surface-2"
             >
-              <span aria-hidden="true">✕</span>
+              <Icon name="x" size={16} />
             </button>
           </div>
 

@@ -1,3 +1,5 @@
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
 import {
   LICENSE_TYPE_LABELS,
   type LicenseType,
@@ -6,19 +8,24 @@ import {
   licenseRestrictionWarning,
 } from "@/lib/sources";
 
-/** Base badge for the license type itself (neutral/informational). */
+const LICENSE_VARIANT: Record<LicenseType, BadgeVariant> = {
+  public_domain: "success",
+  cc_by: "success",
+  cc_by_sa: "success",
+  own: "success",
+  licensed: "info",
+  cc_by_nc: "warning",
+  cc_by_nd: "danger",
+  ai_generated: "primary",
+};
+
+/** Base badge for the license type itself, colored by risk (NC warning, ND danger). */
 export function LicenseTypeBadge({ licenseType }: { licenseType: LicenseType }) {
-  if (licenseType === "ai_generated") {
-    return (
-      <span className="border-info/40 bg-info-soft text-fg inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium">
-        <span aria-hidden="true">✦</span> {LICENSE_TYPE_LABELS[licenseType]}
-      </span>
-    );
-  }
   return (
-    <span className="inline-flex items-center rounded-full border border-border-strong bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-fg-muted">
+    <Badge variant={LICENSE_VARIANT[licenseType]}>
+      {licenseType === "ai_generated" ? <Icon name="sparkles" size={12} /> : null}
       {LICENSE_TYPE_LABELS[licenseType]}
-    </span>
+    </Badge>
   );
 }
 
@@ -32,19 +39,17 @@ export function SourceWarningBadges({ source }: { source: Source }) {
   return (
     <>
       {restriction ? (
-        <span
-          role="status"
-          className="border-warning/40 bg-warning-soft text-fg inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium"
-        >
-          <span aria-hidden="true">⚠</span> {restriction}
+        <span role="status">
+          <Badge variant="warning">
+            <Icon name="alert" size={12} /> {restriction}
+          </Badge>
         </span>
       ) : null}
       {expired ? (
-        <span
-          role="status"
-          className="border-danger/40 bg-danger-soft text-fg inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium"
-        >
-          <span aria-hidden="true">⚠</span> licença vencida
+        <span role="status">
+          <Badge variant="danger">
+            <Icon name="alert" size={12} /> licença vencida
+          </Badge>
         </span>
       ) : null}
     </>

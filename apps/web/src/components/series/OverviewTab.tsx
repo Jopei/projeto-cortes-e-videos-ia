@@ -19,7 +19,7 @@ import { cardClass, secondaryButton } from "@/components/series/common";
 const DOT_CLASS: Record<string, string> = {
   done: "bg-emerald-500 border-emerald-600",
   wait: "bg-amber-500 border-amber-600",
-  work: "bg-primary-hover border-indigo-600",
+  work: "bg-primary-hover border-primary",
   fail: "bg-red-500 border-red-600",
   idle: "bg-border border-slate-400",
 };
@@ -135,7 +135,7 @@ export function OverviewTab({
                       <span className="block truncate text-xs text-fg-muted">{e.title}</span>
                       {shifted > 0 ? (
                         <span
-                          className="block text-xs text-amber-700 dark:text-amber-300"
+                          className="block text-xs text-warning"
                           title="A agenda foi empurrada porque um episódio anterior não ficou pronto a tempo."
                         >
                           adiado {shifted} dia{shifted > 1 ? "s" : ""}

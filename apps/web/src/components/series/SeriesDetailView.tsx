@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Icon } from "@/components/ui/Icon";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOwnerLabel, useShowOwnerColumn } from "@/lib/admin-view";
@@ -22,7 +23,10 @@ import { isAbort } from "@/lib/series-errors";
 import { useResource } from "@/lib/use-resource";
 import { usePolling } from "@/lib/use-polling";
 import { ChannelColorDot } from "@/components/channels/ChannelPicker";
-import { Dialog } from "@/components/ui/Dialog";
+import { Button } from "@/components/ui/Button";
+import { MoreMenu } from "@/components/ui/MoreMenu";
+import { Tabs } from "@/components/ui/Tabs";
+import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SeriesStatusBadge, Spinner } from "@/components/series/badges";
@@ -46,7 +50,6 @@ import {
   cardClass,
   dangerButton,
   primaryButton,
-  secondaryButton,
 } from "@/components/series/common";
 import { useToast } from "@/components/ui/Toast";
 import { seriesErrorMessage } from "@/lib/series-errors";
@@ -79,7 +82,6 @@ export function SeriesDetailView({ seriesId }: { seriesId: string }) {
   const openEpisode = Number.isInteger(epParam) && epParam >= 1 && epParam <= EPISODE_COUNT ? epParam : null;
 
   const [dialog, setDialog] = useState<SeriesDialogKind | null>(null);
-  const [mobileActions, setMobileActions] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [busyAction, setBusyAction] = useState<"pause" | "resume" | null>(null);
 
@@ -184,7 +186,8 @@ export function SeriesDetailView({ seriesId }: { seriesId: string }) {
   if (["planned", "planning", "active", "paused", "plan_failed"].includes(status)) actions.push({ key: "cancel", label: "Cancelar série", onClick: () => setDialog("cancel"), variant: "secondary" });
   if (["planned", "plan_failed", "canceled"].includes(status)) actions.push({ key: "delete", label: "Excluir", onClick: () => setDialog("delete"), variant: "danger" });
 
-  const btnClass = (v: "primary" | "secondary" | "danger") => (v === "primary" ? primaryButton : v === "danger" ? dangerButton : secondaryButton);
+  const main = actions.find((a) => a.variant === "primary") ?? actions.find((a) => a.variant === "secondary");
+  const menuActions = actions.filter((a) => a !== main);
 
   return (
     <div className="flex flex-col gap-4">
@@ -196,8 +199,8 @@ export function SeriesDetailView({ seriesId }: { seriesId: string }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <Link href="/series" className="text-xs text-primary-text hover:underline">
-                ← Séries
+              <Link href="/series" className="inline-flex min-h-[40px] items-center gap-1 text-sm text-primary-text hover:underline md:min-h-0 md:text-xs">
+                <Icon name="chevronLeft" size={12} /> Séries
               </Link>
               <SeriesStatusBadge status={status} />
               <span className="flex items-center gap-1.5 text-xs text-fg-muted">
@@ -213,17 +216,19 @@ export function SeriesDetailView({ seriesId }: { seriesId: string }) {
               {series.budget_limit_usd != null ? ` / ${formatUsd(series.budget_limit_usd)}` : " (sem limite)"}
             </p>
           </div>
-          <div className="hidden flex-wrap items-center gap-2 md:flex">
-            {actions.map((a) => (
-              <button key={a.key} type="button" onClick={a.onClick} disabled={a.busy} className={btnClass(a.variant)}>
-                {a.label}
-              </button>
-            ))}
-          </div>
-          {actions.length > 0 ? (
-            <button type="button" onClick={() => setMobileActions(true)} className={`${secondaryButton} md:hidden`}>
-              Ações
-            </button>
+          {main ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <Button variant={main.variant === "danger" ? "danger" : main.variant} onClick={main.onClick} disabled={main.busy}>
+                {main.label}
+              </Button>
+              {menuActions.length > 0 ? (
+                <MoreMenu
+                  withText
+                  label="Ações da série"
+                  items={menuActions.map((a) => ({ label: a.label, danger: a.variant === "danger", disabled: a.busy, onSelect: a.onClick }))}
+                />
+              ) : null}
+            </div>
           ) : null}
         </div>
       </header>
@@ -275,15 +280,8 @@ export function SeriesDetailView({ seriesId }: { seriesId: string }) {
       ) : (
         <>
           {status === "planned" ? (
-            <Notice
-              tone="info"
-              action={
-                <button type="button" onClick={() => setDialog("start")} className={primaryButton}>
-                  Iniciar série
-                </button>
-              }
-            >
-              O plano está pronto. Revise a bíblia e os episódios; quando estiver satisfeito, inicie a série.
+            <Notice tone="info">
+              O plano está pronto. Revise a bíblia e os episódios; quando estiver satisfeito, use &ldquo;Iniciar série&rdquo; no topo da página.
             </Notice>
           ) : null}
 
@@ -314,25 +312,6 @@ export function SeriesDetailView({ seriesId }: { seriesId: string }) {
         />
       ) : null}
 
-      <Dialog open={mobileActions} onClose={() => setMobileActions(false)} title="Ações da série">
-        <div className="flex flex-col gap-2">
-          {actions.map((a) => (
-            <button
-              key={a.key}
-              type="button"
-              disabled={a.busy}
-              onClick={() => {
-                setMobileActions(false);
-                a.onClick();
-              }}
-              className={`${btnClass(a.variant)} min-h-[44px]`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      </Dialog>
-
       {dialog === "start" ? <StartDialog series={series} onClose={() => setDialog(null)} onDone={res.reload} /> : null}
       {dialog === "cancel" ? <CancelDialog series={series} onClose={() => setDialog(null)} onDone={res.reload} /> : null}
       {dialog === "delete" ? <DeleteDialog series={series} onClose={() => setDialog(null)} /> : null}
@@ -343,43 +322,16 @@ export function SeriesDetailView({ seriesId }: { seriesId: string }) {
 }
 
 function TabBar({ tab, onChange, attention }: { tab: TabId; onChange: (t: TabId) => void; attention: number }) {
-  function onKeyDown(e: React.KeyboardEvent) {
-    const idx = TABS.findIndex((t) => t.id === tab);
-    let next = idx;
-    if (e.key === "ArrowRight") next = (idx + 1) % TABS.length;
-    else if (e.key === "ArrowLeft") next = (idx - 1 + TABS.length) % TABS.length;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = TABS.length - 1;
-    else return;
-    e.preventDefault();
-    onChange(TABS[next].id);
-    document.getElementById(`tab-${TABS[next].id}`)?.focus();
-  }
   return (
-    <div role="tablist" aria-label="Seções da série" onKeyDown={onKeyDown} className="flex gap-1 overflow-x-auto border-b border-border">
-      {TABS.map((t) => {
-        const selected = t.id === tab;
-        return (
-          <button
-            key={t.id}
-            id={`tab-${t.id}`}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            aria-controls={`panel-${t.id}`}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onChange(t.id)}
-            className={`min-h-[44px] shrink-0 whitespace-nowrap rounded-t-md px-4 py-2 text-sm font-medium focus-ring ${
-              selected
-                ? "border-b-2 border-indigo-600 text-primary-text"
-                : "text-fg-subtle hover:text-fg"
-            }`}
-          >
-            {t.label}
-            {t.id === "episodios" && attention > 0 ? <span className="ml-1 text-amber-700 dark:text-amber-300">({attention})</span> : null}
-          </button>
-        );
-      })}
-    </div>
+    <Tabs
+      label="Seções da série"
+      value={tab}
+      onChange={onChange}
+      tabs={TABS.map((t) => ({
+        id: t.id,
+        label: t.label,
+        badge: t.id === "episodios" && attention > 0 ? <Badge variant="warning">{attention} precisam de ação</Badge> : undefined,
+      }))}
+    />
   );
 }

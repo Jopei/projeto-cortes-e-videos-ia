@@ -61,6 +61,16 @@ html.dark {
   }
 }
 
+/* Touch targets: every control is at least 40px tall on mobile (inline text links are exempt, WCAG 2.5.8). */
+@media (max-width: 767px) {
+  button:not([role="tab"]):not([data-compact]),
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="file"]),
+  summary {
+    min-height: 40px;
+  }
+}
+
 @layer components {
   .focus-ring {
     @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--ring))];

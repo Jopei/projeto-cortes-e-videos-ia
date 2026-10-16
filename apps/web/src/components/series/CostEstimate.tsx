@@ -116,8 +116,8 @@ export function StrategyStep({
                 key={s.value}
                 className={`flex cursor-pointer flex-col gap-1 rounded-lg border p-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-500 ${
                   checked
-                    ? "border-info/40 bg-info-soft text-fg ring-2 ring-indigo-500"
-                    : "border-border-strong bg-surface hover:border-indigo-300"
+                    ? "border-info/40 bg-info-soft text-fg ring-2 ring-primary"
+                    : "border-border-strong bg-surface hover:border-primary"
                 }`}
               >
                 <span className="flex items-center gap-2">

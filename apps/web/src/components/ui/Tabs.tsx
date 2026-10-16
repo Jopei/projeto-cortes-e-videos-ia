@@ -43,6 +43,7 @@ export function Tabs<T extends string>({
             }}
             id={`tab-${tab.id}`}
             role="tab"
+            aria-controls={`panel-${tab.id}`}
             type="button"
             aria-selected={active}
             tabIndex={active ? 0 : -1}
