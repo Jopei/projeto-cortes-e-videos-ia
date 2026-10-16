@@ -12,6 +12,7 @@ celery_app = Celery(
     backend=settings.redis_url,
     include=[
         "app.worker.tasks",
+        "app.worker.story.tasks",
     ],
 )
 
@@ -28,6 +29,30 @@ celery_app.conf.update(
     task_eager_propagates=True,
 )
 
-# Celery beat schedule. Empty on purpose for now — etapa C (agendamento,
-# refresh de tokens OAuth, checagem de posting_windows) adds entries here.
-celery_app.conf.beat_schedule = {}
+# Series IA queues: `story` (Claude + orchestration) and `genmedia` (provider
+# submit/poll/download) are consumed by the `worker-story` service
+# (`-Q story,genmedia`); everything else (analysis/render/metadata and the
+# ffmpeg `assemble_episode`) stays on the default `celery` queue.
+celery_app.conf.task_default_queue = "celery"
+celery_app.conf.task_routes = {
+    "app.worker.story.tasks.plan_series": {"queue": "story"},
+    "app.worker.story.tasks.script_episode": {"queue": "story"},
+    "app.worker.story.tasks.validate_episode": {"queue": "story"},
+    "app.worker.story.tasks.generate_episode_media": {"queue": "story"},
+    "app.worker.story.tasks.maybe_assemble": {"queue": "story"},
+    "app.worker.story.tasks.series_tick": {"queue": "story"},
+    "app.worker.story.tasks.submit_media_job": {"queue": "genmedia"},
+    "app.worker.story.tasks.poll_media_job": {"queue": "genmedia"},
+    "app.worker.story.tasks.assemble_episode": {"queue": "celery"},
+}
+
+# Celery beat schedule. Series IA agenda tick every 10 minutes (the task
+# takes a Redis lock, so overlapping runs are harmless). Etapa C (refresh de
+# tokens OAuth, checagem de posting_windows) adds more entries here.
+celery_app.conf.beat_schedule = {
+    "series-tick": {
+        "task": "app.worker.story.tasks.series_tick",
+        "schedule": 600.0,
+        "options": {"queue": "story"},
+    },
+}

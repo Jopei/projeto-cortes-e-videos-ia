@@ -620,6 +620,21 @@ Plano: `docs/series-ia-plano.md`. Base compartilhada por API e worker:
   `DEFAULT_SERIES_BUDGET_USD`/`DEFAULT_MONTHLY_AI_BUDGET_USD` (vazio = None).
   Testes: `tests/test_story_foundation.py`.
 
+## Séries IA: motor do worker (etapa 2c)
+
+- Tasks em `app/worker/story/tasks.py` (nomes/filas conforme `celery_app.task_routes`; `series_tick` no beat a cada 10 min). Toda
+  mudança de status via `app/story/state.py::transition`; tasks são idempotentes (CAS) e não relançam falha de negócio.
+  Claude só via `app/worker/story/llm.py::call_structured` (tool forçada, preço por `CLAUDE_PRICES_PER_MTOK`); custos em
+  `ai_usage_events` por `app/worker/story/costs.py`.
+- Puros em `app/story/`: `validator.py`, `projection.py` (estado projetado, fios abertos, `assign_visual_modes`), `plan_checks.py`,
+  `prompts.py` (inclui `compose_visual_prompt`), `blocklist.py`.
+- Provedores em `app/worker/genmedia/` (`registry.py` monta por task; fakes só com `STORY_FAKE_PROVIDERS_ENABLED`; semáforo/lock
+  Redis em `semaphore.py`, em memória quando `CELERY_TASK_ALWAYS_EAGER`). ElevenLabs: `/v1/text-to-speech/{voice}/with-timestamps`
+  (alinhamento por caractere agrupado em palavras), modelo/paths configuráveis (`ELEVENLABS_*`).
+- Mídia idempotente por `story_media_jobs.idempotency_key`; para forçar refazer um componente, marque seus jobs `canceled`/`failed`.
+  Falha de segurança do provedor ou `narration_too_long` re-roteiriza UMA vez (`validation.media_retries`), depois `needs_attention`.
+- Testes: `tests/test_story_*.py`; os que usam ffmpeg são `-m integration` (rodar na imagem `worker`).
+
 ## Testes
 
 `services/api/tests/`: `conftest.py` cria as tabelas `sources`/`media_assets`
