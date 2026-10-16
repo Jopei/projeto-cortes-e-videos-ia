@@ -26,6 +26,8 @@ class UserRead(BaseModel):
     storage_quota_bytes: int | None
     daily_analysis_quota: int | None
     max_channels: int | None
+    max_active_series: int | None
+    monthly_ai_budget_usd: float | None
     created_at: datetime
     last_login_at: datetime | None
 
@@ -45,6 +47,10 @@ class UsageRead(BaseModel):
     daily_analysis_quota: int | None
     channels_count: int
     max_channels: int | None
+    active_series: int = 0
+    max_active_series: int | None = None
+    ai_spend_month_usd: float = 0.0
+    monthly_ai_budget_usd: float | None = None
 
 
 class AdminUserCreate(BaseModel):
@@ -56,6 +62,8 @@ class AdminUserCreate(BaseModel):
     storage_quota_gb: float | None = Field(default=None, description="null = unlimited")
     daily_analysis_quota: int | None = None
     max_channels: int | None = None
+    max_active_series: int | None = None
+    monthly_ai_budget_usd: float | None = Field(default=None, ge=0, description="null = unlimited")
     must_change_password: bool = True
 
     @field_validator("username")
@@ -72,6 +80,8 @@ class AdminUserUpdate(BaseModel):
     storage_quota_gb: float | None = None
     daily_analysis_quota: int | None = None
     max_channels: int | None = None
+    max_active_series: int | None = None
+    monthly_ai_budget_usd: float | None = Field(default=None, ge=0)
 
 
 class AdminResetPasswordRequest(BaseModel):

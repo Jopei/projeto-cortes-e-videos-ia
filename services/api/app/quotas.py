@@ -11,6 +11,7 @@ reimplemented at each call site (tusd hook, `POST /media-assets/{id}/analyze`,
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -22,13 +23,15 @@ from app.models.analysis_job import AnalysisJob
 from app.models.channel import Channel
 from app.models.clip import Clip
 from app.models.media_asset import MediaAsset
+from app.models.story import AiUsageEvent, SeriesStatus, StoryMediaJob, StorySeries
 from app.models.user import User
 
 ANALYSIS_QUOTA_TZ = ZoneInfo("America/Sao_Paulo")
 
 
 def storage_used_bytes(db: Session, owner_id: uuid.UUID) -> int:
-    """Sum of `media_assets.size_bytes` + `clips.size_bytes` for `owner_id`.
+    """Sum of `media_assets.size_bytes` + `clips.size_bytes` +
+    `story_media_jobs.size_bytes` (Series IA intermediates) for `owner_id`.
     Rows with a NULL `size_bytes` (not yet known, e.g. render still running)
     count as 0 — never blocks on missing data, only on confirmed usage."""
     media_sum = (
@@ -38,7 +41,13 @@ def storage_used_bytes(db: Session, owner_id: uuid.UUID) -> int:
     clip_sum = (
         db.query(func.coalesce(func.sum(Clip.size_bytes), 0)).filter(Clip.owner_id == owner_id).scalar() or 0
     )
-    return int(media_sum) + int(clip_sum)
+    story_sum = (
+        db.query(func.coalesce(func.sum(StoryMediaJob.size_bytes), 0))
+        .filter(StoryMediaJob.owner_id == owner_id)
+        .scalar()
+        or 0
+    )
+    return int(media_sum) + int(clip_sum) + int(story_sum)
 
 
 def _analysis_day_bounds_utc(now: datetime | None = None) -> tuple[datetime, datetime]:
@@ -110,4 +119,85 @@ def assert_channel_quota(db: Session, user: User, owner_id: uuid.UUID) -> None:
         raise HTTPException(
             status_code=409,
             detail=f"Limite de canais atingido: {used}/{user.max_channels} canais já criados.",
+        )
+
+
+# --- Series IA -------------------------------------------------------------
+
+_ACTIVE_SERIES_STATUSES = (
+    SeriesStatus.PLANNING,
+    SeriesStatus.PLANNED,
+    SeriesStatus.ACTIVE,
+    SeriesStatus.PAUSED,
+)
+
+
+def active_series_count(db: Session, owner_id: uuid.UUID) -> int:
+    """Series that still consume the quota: planning/planned/active/paused
+    (not plan_failed, completed or canceled)."""
+    return (
+        db.query(func.count())
+        .select_from(StorySeries)
+        .filter(StorySeries.owner_id == owner_id, StorySeries.status.in_(_ACTIVE_SERIES_STATUSES))
+        .scalar()
+        or 0
+    )
+
+
+def _month_bounds_utc(now: datetime | None = None) -> tuple[datetime, datetime]:
+    now = now or datetime.now(timezone.utc)
+    local = now.astimezone(ANALYSIS_QUOTA_TZ)
+    start_local = local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    end_local = (start_local + timedelta(days=32)).replace(day=1)
+    return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
+
+
+def ai_spend_month(db: Session, owner_id: uuid.UUID, *, now: datetime | None = None) -> Decimal:
+    """Sum of `ai_usage_events.cost_usd` of the current calendar month
+    (America/Sao_Paulo) for `owner_id`."""
+    start_utc, end_utc = _month_bounds_utc(now)
+    total = (
+        db.query(func.coalesce(func.sum(AiUsageEvent.cost_usd), 0))
+        .filter(
+            AiUsageEvent.owner_id == owner_id,
+            AiUsageEvent.created_at >= start_utc,
+            AiUsageEvent.created_at < end_utc,
+        )
+        .scalar()
+    )
+    return Decimal(str(total or 0))
+
+
+def _coded(status_code: int, code: str, message: str) -> HTTPException:
+    return HTTPException(status_code=status_code, detail={"code": code, "message": message})
+
+
+def assert_active_series_quota(db: Session, user: User, owner_id: uuid.UUID) -> None:
+    """Raise HTTP 409 `active_series_limit` if creating one more series
+    would exceed `max_active_series`. No-op for admins / unlimited."""
+    if user.is_admin or user.max_active_series is None:
+        return
+    used = active_series_count(db, owner_id)
+    if used >= user.max_active_series:
+        raise _coded(
+            409,
+            "active_series_limit",
+            f"Limite de séries ativas atingido: {used}/{user.max_active_series}.",
+        )
+
+
+def assert_ai_budget(
+    db: Session, user: User, owner_id: uuid.UUID, additional_usd: Decimal | float = 0
+) -> None:
+    """Raise HTTP 409 `user_ai_budget_exceeded` if this month's AI spend
+    plus `additional_usd` would exceed `monthly_ai_budget_usd`. No-op for
+    admins / unlimited."""
+    if user.is_admin or user.monthly_ai_budget_usd is None:
+        return
+    spent = ai_spend_month(db, owner_id)
+    if spent + Decimal(str(additional_usd)) > Decimal(str(user.monthly_ai_budget_usd)):
+        raise _coded(
+            409,
+            "user_ai_budget_exceeded",
+            f"Orçamento mensal de IA excedido: US$ {spent:.2f} gastos de US$ {user.monthly_ai_budget_usd}.",
         )

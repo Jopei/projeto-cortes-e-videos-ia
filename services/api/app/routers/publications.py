@@ -3,37 +3,27 @@ from __future__ import annotations
 import io
 import uuid
 import zipfile
-from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.audit import record_action
+from app.clip_source import resolve_clip_source
 from app.config import get_settings
 from app.db import get_db
-from app.models.clip import Clip, ClipStatus
+from app.models.clip import Clip
 from app.models.clip_metadata import ClipMetadata
-from app.models.media_asset import MediaAsset
-from app.models.platform_account import AccountMode, PlatformAccount
+from app.models.platform_account import PlatformAccount
 from app.models.publication import Publication, PublicationStatus
-from app.models.source import Source
 from app.rights.attribution import build_description
-from app.rights.gate import check_publishable
-from app.scheduling import NoSlotAvailableError, find_next_slot
+from app.publishing import create_publications
 from app.scope import Scope, get_owned_or_404, get_scope
 from app.schemas.publication import PublicationBatchRequest, PublicationBatchResult, PublicationRead
 from app.storage import S3Client, get_s3_client
 from app.worker.tasks import takedown_publication as takedown_publication_task
 
 router = APIRouter(prefix="/api/publications", tags=["publications"], dependencies=[Depends(get_scope)])
-
-
-def _resolve_source(db: Session, clip: Clip) -> Source | None:
-    media_asset = db.get(MediaAsset, clip.media_asset_id)
-    if media_asset is None:
-        return None
-    return db.get(Source, media_asset.source_id)
 
 
 @router.post("/batch", response_model=PublicationBatchResult, status_code=201)
@@ -92,81 +82,21 @@ def create_publications_batch(
             for account_id in payload.account_ids:
                 pairs.append((clip, accounts[account_id]))
 
-    now = datetime.now(timezone.utc)
-    explicit_schedule: datetime | None = None
-    if payload.schedule not in ("auto", "now"):
-        explicit_schedule = datetime.fromisoformat(payload.schedule)
-        if explicit_schedule.tzinfo is None:
-            explicit_schedule = explicit_schedule.replace(tzinfo=timezone.utc)
-
-    extra_counts_by_account: dict[uuid.UUID, dict[date, int]] = {}
-    created: list[Publication] = []
-
-    sources_by_clip: dict[uuid.UUID, object] = {}
-    for clip_id, clip in clips.items():
-        sources_by_clip[clip_id] = _resolve_source(db, clip)
-
-    for clip, account in pairs:
-        source = sources_by_clip[clip.id]
-        publication = Publication(owner_id=owner_id, clip_id=clip.id, account_id=account.id, platform=account.platform)
-
-        if clip.status != ClipStatus.APPROVED:
-            publication.status = PublicationStatus.BLOCKED
-            publication.block_reasons = ["clip_not_approved"]
-        else:
-            ok, reasons = check_publishable(source, account.platform.value, now, monetized=account.monetized)
-            if not ok:
-                publication.status = PublicationStatus.BLOCKED
-                publication.block_reasons = reasons
-            elif account.mode == AccountMode.MANUAL:
-                publication.status = PublicationStatus.EXPORTED
-                publication.privacy = payload.privacy
-            else:
-                publication.privacy = payload.privacy
-                if payload.schedule == "now":
-                    publication.status = PublicationStatus.SCHEDULED
-                    publication.scheduled_at = now
-                elif explicit_schedule is not None:
-                    publication.status = PublicationStatus.SCHEDULED
-                    publication.scheduled_at = explicit_schedule
-                else:
-                    extra_counts = extra_counts_by_account.setdefault(account.id, {})
-                    try:
-                        slot = find_next_slot(
-                            db,
-                            account_id=account.id,
-                            posting_windows=account.posting_windows,
-                            daily_limit=account.daily_limit,
-                            timezone_name=account.timezone,
-                            after=now,
-                            extra_counts=extra_counts,
-                        )
-                    except NoSlotAvailableError as exc:
-                        publication.status = PublicationStatus.FAILED
-                        publication.error = str(exc)
-                    else:
-                        publication.status = PublicationStatus.SCHEDULED
-                        publication.scheduled_at = slot
-
-        db.add(publication)
-        db.flush()
-        record_action(
-            db,
-            user_id=scope.actor.id,
-            action="publication.create",
-            entity="publication",
-            entity_id=publication.id,
-            details=scope.audit_details(
-                {
-                    "clip_id": str(clip.id),
-                    "account_id": str(account.id),
-                    "status": publication.status.value,
-                    "block_reasons": publication.block_reasons,
-                }
-            ),
+    if any(clip.episode_id is not None for clip in clips.values()):
+        raise HTTPException(
+            status_code=422,
+            detail="Clips de episódios de série não podem ser publicados por /batch; use a aprovação do episódio.",
         )
-        created.append(publication)
 
+    created = create_publications(
+        db,
+        owner_id=owner_id,
+        pairs=pairs,
+        schedule=payload.schedule,
+        privacy=payload.privacy,
+        actor_id=scope.actor.id,
+        audit_details=scope.audit_details(),
+    )
     db.commit()
     for publication in created:
         db.refresh(publication)
@@ -260,7 +190,7 @@ def export_publication(
         .filter(ClipMetadata.clip_id == clip.id, ClipMetadata.platform == publication.platform.value)
         .one_or_none()
     )
-    source = _resolve_source(db, clip)
+    source = resolve_clip_source(db, clip)
     description = build_description(
         metadata.description if metadata else None,
         source.attribution_text if source else None,

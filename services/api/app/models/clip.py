@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, DateTime, Enum, Float, ForeignKey, String, Text, Uuid, func
+from sqlalchemy import JSON, BigInteger, Boolean, CheckConstraint, DateTime, Enum, Float, ForeignKey, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -29,16 +29,28 @@ class Clip(Base):
     """
 
     __tablename__ = "clips"
+    __table_args__ = (
+        CheckConstraint(
+            "(job_id IS NOT NULL AND media_asset_id IS NOT NULL) OR episode_id IS NOT NULL",
+            name="ck_clips_origin",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
-    job_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("analysis_jobs.id"), nullable=False, index=True
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("analysis_jobs.id"), nullable=True, index=True
     )
-    media_asset_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("media_assets.id"), nullable=False, index=True
+    media_asset_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("media_assets.id"), nullable=True, index=True
+    )
+    episode_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("story_episodes.id", ondelete="SET NULL"), nullable=True, unique=True
+    )
+    synthetic_media: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
     )
     channel_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True, index=True
@@ -59,7 +71,7 @@ class Clip(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    job: Mapped["AnalysisJob"] = relationship(back_populates="clips")  # noqa: F821
+    job: Mapped["AnalysisJob | None"] = relationship(back_populates="clips")  # noqa: F821
     metadata_entries: Mapped[list["ClipMetadata"]] = relationship(  # noqa: F821
         back_populates="clip", cascade="all, delete-orphan"
     )

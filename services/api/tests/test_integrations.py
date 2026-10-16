@@ -17,11 +17,11 @@ def test_integrations_requires_admin(logged_in_client):
     assert logged_in_client.post("/api/admin/integrations/youtube/test").status_code == 403
 
 
-def test_integrations_list_has_all_seven(admin_client):
+def test_integrations_list_has_all_nine(admin_client):
     resp = admin_client.get("/api/admin/integrations")
     assert resp.status_code == 200
     ids = {item["id"] for item in resp.json()}
-    assert ids == {"youtube", "tiktok", "instagram", "facebook", "bilibili", "vimeo", "anthropic"}
+    assert ids == {"youtube", "tiktok", "instagram", "facebook", "bilibili", "vimeo", "anthropic", "elevenlabs", "openai"}
 
 
 def test_integrations_unknown_id_404(admin_client):

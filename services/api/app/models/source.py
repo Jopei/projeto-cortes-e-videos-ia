@@ -19,6 +19,7 @@ class LicenseType(str, enum.Enum):
     CC_BY_ND = "cc_by_nd"
     LICENSED = "licensed"
     OWN = "own"
+    AI_GENERATED = "ai_generated"
 
 
 class Source(Base):

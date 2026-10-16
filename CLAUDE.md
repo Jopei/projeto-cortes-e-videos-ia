@@ -577,6 +577,49 @@ UI, sem reiniciar nada — o efetivo é sempre "banco se existir, senão env".
 **Contrato de API estável a partir daqui** — qualquer mudança de campo/rota
 deve ser avisada explicitamente ao frontend-specialist.
 
+## Séries IA: fundação (etapa 2a)
+
+Plano: `docs/series-ia-plano.md`. Base compartilhada por API e worker:
+
+- `app/story/state.py`: tabelas `SERIES_TRANSITIONS`/`EPISODE_TRANSITIONS` e
+  `transition(db, obj, to, expected_from, **campos)` — compare-and-set
+  (`UPDATE ... WHERE id AND status IN expected`, `rowcount==1`); levanta
+  `InvalidTransition` (par fora da tabela) ou `TransitionConflict` (outro
+  processo moveu antes). Faz flush, não commit. Toda mudança de status de
+  série/episódio passa por aqui.
+- `app/story/schemas.py`: Pydantic + JSON Schema das tools do Claude
+  (`tool_schema(name)`, `all_tools()`, `parse_tool_result`) e `Bible`; fonte
+  única para o worker (tools) e a API (validar PUT script/bible).
+- `app/genmedia_catalog.py`: catálogo sem SDK (video/image/tts), preço por
+  `GENMEDIA_PRICE_<ID>_USD` (vídeo por segundo, imagem por unidade, TTS por 1k
+  caracteres); `fake_*` só com `STORY_FAKE_PROVIDERS_ENABLED=true`;
+  `estimate_episode_cost` (pura; LLM via `STORY_ESTIMATE_LLM_PER_EPISODE_USD`
+  e `STORY_ESTIMATE_LLM_PLAN_USD`; temporada = 20 eps + 20% de margem + plano).
+- `app/clip_source.py::resolve_clip_source` (media_asset→source ou
+  episode→series→source) — único ponto, usado por publications e metadata.
+- `app/publishing.py::create_publications(...)`: núcleo do rights gate na
+  criação de publicações (batch e, depois, aprovação de episódio). `after` =
+  nunca agendar antes do instante; `synthetic_media` é copiado do clip.
+  `POST /publications/batch` responde 422 para clips com `episode_id`.
+- Cotas (`app/quotas.py`): `assert_active_series_quota` (409
+  `{code: active_series_limit}`; conta planning/planned/active/paused),
+  `ai_spend_month`, `assert_ai_budget` (409 `user_ai_budget_exceeded`);
+  armazenamento soma também `story_media_jobs.size_bytes`. Admin isento.
+  `users.max_active_series`/`monthly_ai_budget_usd` em admin create/patch,
+  `UserRead` e `UsageRead` (`active_series`, `ai_spend_month_usd` também).
+- Integrações `elevenlabs` (`api_key`, `model_id` opcional) e `openai`
+  (`api_key`, reservada), sem redirect; teste do ElevenLabs = `GET
+  https://api.elevenlabs.io/v1/user` (header `xi-api-key`).
+- `ClipRead`: `job_id`/`media_asset_id` nullable, `episode_id`, `series_id`,
+  `episode_number`, `synthetic_media`; `PublicationRead.synthetic_media`.
+  Clip de episódio: `PATCH /clips/{id}` e `/clips/bulk` respondem 409
+  `episode_clip_managed_by_series` até a etapa 2b delegar ao lifecycle.
+- `GET /api/series/providers` e `POST /api/series/estimate` (escopados, não
+  admin) em `app/routers/series.py` (o resto das rotas vem na 2b).
+- Settings novas: `STORY_*`, `GENMEDIA_*`, `DEFAULT_MAX_ACTIVE_SERIES` (1),
+  `DEFAULT_SERIES_BUDGET_USD`/`DEFAULT_MONTHLY_AI_BUDGET_USD` (vazio = None).
+  Testes: `tests/test_story_foundation.py`.
+
 ## Testes
 
 `services/api/tests/`: `conftest.py` cria as tabelas `sources`/`media_assets`

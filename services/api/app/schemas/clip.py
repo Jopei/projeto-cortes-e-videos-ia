@@ -15,8 +15,13 @@ class ClipRead(BaseModel):
 
     id: uuid.UUID
     owner_id: uuid.UUID
-    job_id: uuid.UUID
-    media_asset_id: uuid.UUID
+    job_id: uuid.UUID | None
+    media_asset_id: uuid.UUID | None
+    episode_id: uuid.UUID | None = None
+    series_id: uuid.UUID | None = None
+    """Only set for Series IA episode clips (resolved via the episode)."""
+    episode_number: int | None = None
+    synthetic_media: bool = False
     channel_id: uuid.UUID | None
     start_s: float
     end_s: float

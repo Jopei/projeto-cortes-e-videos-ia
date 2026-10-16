@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -41,6 +42,8 @@ class User(Base):
     storage_quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     daily_analysis_quota: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_channels: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_active_series: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    monthly_ai_budget_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     session_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     """Bumped to invalidate every JWT already issued for this user (they
     carry the value in the `sv` claim, see `app/security.py` /

@@ -214,6 +214,26 @@ def _test_anthropic() -> IntegrationTestResult:
         return IntegrationTestResult(ok=False, message="Falha ao conectar à Anthropic (timeout ou rede).")
 
 
+def _test_elevenlabs() -> IntegrationTestResult:
+    api_key = get_integration_value("elevenlabs", "api_key")
+    if not api_key:
+        return IntegrationTestResult(ok=False, message="Chave da ElevenLabs não configurada.")
+    # GET /v1/user: cheap, no credits spent, returns subscription info.
+    req = urllib.request.Request("https://api.elevenlabs.io/v1/user", headers={"xi-api-key": api_key})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if 200 <= resp.status < 300:
+                return IntegrationTestResult(ok=True, message="Conexão com a ElevenLabs bem-sucedida.")
+            return IntegrationTestResult(ok=False, message=f"Resposta inesperada da ElevenLabs (HTTP {resp.status}).")
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            return IntegrationTestResult(ok=False, message=f"Chave da ElevenLabs inválida ({exc.code}).")
+        return IntegrationTestResult(ok=False, message=f"Falha ao chamar a ElevenLabs (HTTP {exc.code}).")
+    except Exception as exc:  # noqa: BLE001 - surface any failure as a plain test result
+        logger.warning("ElevenLabs integration test failed: %s", exc)
+        return IntegrationTestResult(ok=False, message="Falha ao conectar à ElevenLabs (timeout ou rede).")
+
+
 def _test_vimeo() -> IntegrationTestResult:
     client_id = get_integration_value("vimeo", "client_id")
     client_secret = get_integration_value("vimeo", "client_secret")
@@ -271,4 +291,6 @@ def test_integration_settings(integration_id: str) -> IntegrationTestResult:
         return _test_anthropic()
     if integration_id == "vimeo":
         return _test_vimeo()
+    if integration_id == "elevenlabs":
+        return _test_elevenlabs()
     return _test_generic(integration_id, definition)

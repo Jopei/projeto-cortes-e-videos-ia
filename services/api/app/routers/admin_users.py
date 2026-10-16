@@ -24,7 +24,13 @@ from app.models.platform_account import PlatformAccount
 from app.models.publication import Publication
 from app.models.source import Source
 from app.models.user import User
-from app.quotas import analyses_today_count, channels_count, storage_used_bytes
+from app.quotas import (
+    active_series_count,
+    ai_spend_month,
+    analyses_today_count,
+    channels_count,
+    storage_used_bytes,
+)
 from app.scope import require_admin
 from app.schemas.user import (
     AdminResetPasswordRequest,
@@ -50,6 +56,10 @@ def _admin_user_read(db: Session, user: User) -> AdminUserRead:
         daily_analysis_quota=user.daily_analysis_quota,
         channels_count=channels_count(db, user.id),
         max_channels=user.max_channels,
+        active_series=active_series_count(db, user.id),
+        max_active_series=user.max_active_series,
+        ai_spend_month_usd=float(ai_spend_month(db, user.id)),
+        monthly_ai_budget_usd=float(user.monthly_ai_budget_usd) if user.monthly_ai_budget_usd is not None else None,
     )
     clips_count = db.query(func.count()).select_from(Clip).filter(Clip.owner_id == user.id).scalar() or 0
     publications_count = (
@@ -107,6 +117,14 @@ def create_user(
         payload.daily_analysis_quota if "daily_analysis_quota" in fields_set else settings.default_daily_analysis_quota
     )
     max_channels = payload.max_channels if "max_channels" in fields_set else settings.default_max_channels
+    max_active_series = (
+        payload.max_active_series if "max_active_series" in fields_set else settings.default_max_active_series
+    )
+    monthly_ai_budget_usd = (
+        payload.monthly_ai_budget_usd
+        if "monthly_ai_budget_usd" in fields_set
+        else settings.default_monthly_ai_budget_usd
+    )
 
     user = User(
         username=payload.username,
@@ -119,6 +137,8 @@ def create_user(
         storage_quota_bytes=storage_quota_bytes,
         daily_analysis_quota=daily_analysis_quota,
         max_channels=max_channels,
+        max_active_series=max_active_series,
+        monthly_ai_budget_usd=monthly_ai_budget_usd,
     )
     db.add(user)
     db.flush()
@@ -172,7 +192,7 @@ def update_user(
 
     if "storage_quota_gb" in updates:
         target.storage_quota_bytes = gb_to_bytes(updates.pop("storage_quota_gb"))
-    for field in ("display_name", "email", "is_admin", "is_active", "daily_analysis_quota", "max_channels"):
+    for field in ("display_name", "email", "is_admin", "is_active", "daily_analysis_quota", "max_channels", "max_active_series", "monthly_ai_budget_usd"):
         if field in updates:
             setattr(target, field, updates[field])
 

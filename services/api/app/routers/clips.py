@@ -11,12 +11,39 @@ from app.db import get_db
 from app.models.clip import Clip, ClipStatus
 from app.models.clip_metadata import ClipMetadata
 from app.models.enums import Platform
+from app.models.story import StoryEpisode
 from app.scope import Scope, get_owned_or_404, get_scope
 from app.schemas.clip import ClipBulkAction, ClipDetailRead, ClipRead, ClipUpdate
 from app.schemas.clip_metadata import ClipMetadataRead, ClipMetadataUpdate
 from app.storage import S3Client, get_s3_client, stream_s3_object
 from app.worker.tasks import regenerate_metadata as regenerate_metadata_task
 from app.worker.tasks import render_clip
+
+def _enrich(db: Session, clips: list[Clip]) -> list[Clip]:
+    """Attach transient `series_id`/`episode_number` (read by `ClipRead`
+    via from_attributes) to Series IA episode clips."""
+    episode_ids = [c.episode_id for c in clips if c.episode_id is not None]
+    if episode_ids:
+        episodes = {e.id: e for e in db.query(StoryEpisode).filter(StoryEpisode.id.in_(episode_ids)).all()}
+        for clip in clips:
+            ep = episodes.get(clip.episode_id) if clip.episode_id is not None else None
+            clip.series_id = ep.series_id if ep else None
+            clip.episode_number = ep.number if ep else None
+    return clips
+
+
+def _reject_episode_clip(clip: Clip) -> None:
+    # Episode clips are driven by the episode lifecycle (approve/reject/
+    # regenerate under /api/series), not by clip-level edits.
+    if clip.episode_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "episode_clip_managed_by_series",
+                "message": "Clip de episódio de série: use o ciclo de vida do episódio.",
+            },
+        )
+
 
 router = APIRouter(prefix="/api/clips", tags=["clips"], dependencies=[Depends(get_scope)])
 
@@ -41,12 +68,14 @@ def list_clips(
         stmt = stmt.filter(Clip.media_asset_id == media_asset_id)
     if channel_id is not None:
         stmt = stmt.filter(Clip.channel_id == channel_id)
-    return list(stmt.order_by(Clip.created_at.desc()).offset(offset).limit(limit).all())
+    return _enrich(db, list(stmt.order_by(Clip.created_at.desc()).offset(offset).limit(limit).all()))
 
 
 @router.get("/{clip_id}", response_model=ClipDetailRead)
 def get_clip(clip_id: uuid.UUID, db: Session = Depends(get_db), scope: Scope = Depends(get_scope)) -> Clip:
-    return get_owned_or_404(db, Clip, clip_id, scope)
+    clip = get_owned_or_404(db, Clip, clip_id, scope)
+    _enrich(db, [clip])
+    return clip
 
 
 @router.patch("/{clip_id}", response_model=ClipRead)
@@ -57,6 +86,7 @@ def update_clip(
     scope: Scope = Depends(get_scope),
 ) -> Clip:
     clip = get_owned_or_404(db, Clip, clip_id, scope)
+    _reject_episode_clip(clip)
 
     if payload.status is not None:
         clip.status = ClipStatus(payload.status)
@@ -93,7 +123,7 @@ def update_clip(
     if trimmed:
         render_clip.delay(str(clip.id))
 
-    return clip
+    return _enrich(db, [clip])[0]
 
 
 @router.post("/bulk", response_model=list[ClipRead])
@@ -110,6 +140,8 @@ def bulk_update_clips(
         raise HTTPException(status_code=404, detail=f"Clip(s) not found: {', '.join(missing)}")
 
     for clip in clips:
+        _reject_episode_clip(clip)
+    for clip in clips:
         clip.status = new_status
         record_action(
             db,
@@ -122,7 +154,7 @@ def bulk_update_clips(
     db.commit()
     for clip in clips:
         db.refresh(clip)
-    return clips
+    return _enrich(db, clips)
 
 
 @router.put("/{clip_id}/metadata/{platform}", response_model=ClipMetadataRead)

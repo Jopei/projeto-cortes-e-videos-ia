@@ -106,6 +106,23 @@ INTEGRATIONS: dict[str, IntegrationDef] = {
         ],
         has_redirect=False,
     ),
+    "elevenlabs": IntegrationDef(
+        id="elevenlabs",
+        name="ElevenLabs",
+        fields=[
+            IntegrationField("api_key", "API Key", secret=True, required=True),
+            IntegrationField("model_id", "Model ID", secret=False, required=False),
+        ],
+        has_redirect=False,
+    ),
+    "openai": IntegrationDef(
+        id="openai",
+        name="OpenAI",
+        fields=[
+            IntegrationField("api_key", "API Key", secret=True, required=True),
+        ],
+        has_redirect=False,
+    ),
 }
 
 
@@ -124,6 +141,9 @@ _ENV_ATTRS: dict[tuple[str, str], str] = {
     ("vimeo", "client_id"): "vimeo_client_id",
     ("vimeo", "client_secret"): "vimeo_client_secret",
     ("anthropic", "api_key"): "anthropic_api_key",
+    ("elevenlabs", "api_key"): "elevenlabs_api_key",
+    ("elevenlabs", "model_id"): "elevenlabs_model_id",
+    ("openai", "api_key"): "openai_api_key",
 }
 
 

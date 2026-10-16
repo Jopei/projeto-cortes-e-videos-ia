@@ -137,6 +137,42 @@ services:
       - worker
       - --loglevel=INFO
       - --concurrency=${CELERY_WORKER_CONCURRENCY:-2}
+      - -Q
+      - celery
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://cortes:cortes@postgres:5432/cortes}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://storage:8333}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./services/api:/app
+
+  # Worker de series IA: consome as filas `story` (Claude/orquestracao) e
+  # `genmedia` (submit/poll/download de video, imagem e TTS). Mesma imagem
+  # do worker; o worker acima fica so com a fila `celery` (ffmpeg).
+  worker-story:
+    build:
+      context: ./services/api
+      target: worker
+    command:
+      - celery
+      - -A
+      - app.worker.celery_app.celery_app
+      - worker
+      - --loglevel=INFO
+      - --hostname=worker-story@%h
+      - -Q
+      - story,genmedia
+      - --concurrency=${STORY_WORKER_CONCURRENCY:-4}
     restart: unless-stopped
     env_file:
       - .env

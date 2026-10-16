@@ -69,6 +69,7 @@ class PublicationRead(BaseModel):
     privacy: Privacy | None
     error: str | None
     block_reasons: list[str] | None
+    synthetic_media: bool = False
     created_at: datetime
 
 

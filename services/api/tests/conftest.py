@@ -90,6 +90,14 @@ from app.models.clip_metadata import ClipMetadata  # noqa: E402
 from app.models.integration_setting import IntegrationSetting  # noqa: E402
 from app.models.platform_account import PlatformAccount  # noqa: E402
 from app.models.publication import Publication  # noqa: E402
+from app.models.story import (  # noqa: E402
+    AiUsageEvent,
+    StoryCharacter,
+    StoryCharacterEvent,
+    StoryEpisode,
+    StoryMediaJob,
+    StorySeries,
+)
 
 NEW_MODEL_TABLES = [
     Channel.__table__,
@@ -100,6 +108,12 @@ NEW_MODEL_TABLES = [
     Publication.__table__,
     AuditLog.__table__,
     IntegrationSetting.__table__,
+    StorySeries.__table__,
+    StoryCharacter.__table__,
+    StoryEpisode.__table__,
+    StoryCharacterEvent.__table__,
+    StoryMediaJob.__table__,
+    AiUsageEvent.__table__,
 ]
 
 

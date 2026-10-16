@@ -9,6 +9,14 @@ from app.models.media_asset import MediaAsset, MediaAssetStatus
 from app.models.platform_account import AccountMode, AccountStatus, PlatformAccount
 from app.models.publication import Privacy, Publication, PublicationStatus
 from app.models.source import LicenseType, Source
+from app.models.story import (
+    AiUsageEvent,
+    StoryCharacter,
+    StoryCharacterEvent,
+    StoryEpisode,
+    StoryMediaJob,
+    StorySeries,
+)
 from app.models.user import User
 
 __all__ = [
@@ -33,4 +41,10 @@ __all__ = [
     "LicenseType",
     "Source",
     "User",
+    "AiUsageEvent",
+    "StoryCharacter",
+    "StoryCharacterEvent",
+    "StoryEpisode",
+    "StoryMediaJob",
+    "StorySeries",
 ]

@@ -380,7 +380,7 @@ def regenerate_metadata(clip_id: str, platform: str | None = None) -> dict[str, 
     from app.models.clip_metadata import ClipMetadata
     from app.models.media_asset import MediaAsset
     from app.models.platform_account import PlatformAccount
-    from app.models.source import Source
+    from app.clip_source import resolve_clip_source
     from app.worker.metadata.pipeline import generate_metadata
 
     session = db_module.SessionLocal()
@@ -390,8 +390,8 @@ def regenerate_metadata(clip_id: str, platform: str | None = None) -> dict[str, 
         if clip is None:
             return {"clip_id": clip_id, "status": "not_found"}
 
-        media_asset = session.get(MediaAsset, clip.media_asset_id)
-        source = session.get(Source, media_asset.source_id) if media_asset is not None else None
+        media_asset = session.get(MediaAsset, clip.media_asset_id) if clip.media_asset_id else None
+        source = resolve_clip_source(session, clip)
         channel = session.get(Channel, clip.channel_id) if clip.channel_id else None
 
         accounts: list[PlatformAccount] = []

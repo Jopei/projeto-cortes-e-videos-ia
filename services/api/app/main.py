@@ -17,6 +17,7 @@ from app.routers import (
     me,
     media_assets,
     publications,
+    series,
     sources,
     uploads,
 )
@@ -45,3 +46,4 @@ app.include_router(accounts.router)
 app.include_router(publications.router)
 app.include_router(audit_log.router)
 app.include_router(dashboard.router)
+app.include_router(series.router)

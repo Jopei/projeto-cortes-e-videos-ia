@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     bilibili_client_secret: str | None = None
     vimeo_client_id: str | None = None
     vimeo_client_secret: str | None = None
+    elevenlabs_api_key: str | None = None
+    elevenlabs_model_id: str | None = None
+    openai_api_key: str | None = None
     """Env fallback for the fields managed by `app/integrations.py` (see
     `GET/PUT /api/admin/integrations`) — a value saved in the
     `integration_settings` table always takes precedence over these; a
@@ -100,6 +103,29 @@ class Settings(BaseSettings):
     default_storage_quota_gb: int = 50
     default_daily_analysis_quota: int = 10
     default_max_channels: int = 4
+
+    # --- Series IA (see CLAUDE.md "Series IA: fundacao") ---
+    story_planner_model: str = "claude-opus-5-5"
+    story_writer_model: str = "claude-sonnet-5"
+    story_fake_providers_enabled: bool = False
+    """Expose the `fake_*` media providers (cost 0). Dev/tests only."""
+    story_max_validation_attempts: int = 3
+    story_worker_concurrency: int = 4
+    genmedia_max_inflight_default: int = 2
+    genmedia_poll_initial_s: int = 15
+    genmedia_poll_max_s: int = 120
+    genmedia_job_timeout_s: int = 1800
+    default_max_active_series: int | None = 1
+    default_series_budget_usd: float | None = None
+    default_monthly_ai_budget_usd: float | None = None
+
+    @field_validator("default_max_active_series", "default_series_budget_usd", "default_monthly_ai_budget_usd", mode="before")
+    @classmethod
+    def _blank_is_none(cls, value):
+        # `DEFAULT_SERIES_BUDGET_USD=` (empty in .env) means "unlimited".
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @model_validator(mode="after")
     def _require_secret_key(self) -> "Settings":
