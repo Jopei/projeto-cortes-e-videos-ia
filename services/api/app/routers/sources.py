@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models.channel import Channel
 from app.models.source import Source
+from app.models.story import StorySeries
 from app.scope import Scope, get_owned_or_404, get_scope
 from app.schemas.source import SourceCreate, SourceRead, SourceUpdate
 
@@ -22,6 +23,19 @@ def _check_default_channel_owner(db: Session, channel_id: uuid.UUID | None, owne
     channel = db.get(Channel, channel_id)
     if channel is None or channel.owner_id != owner_id:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+
+def _assert_not_series_source(db: Session, source: Source) -> None:
+    """A Source created for a Series IA (license `ai_generated`) is owned by
+    the series: it can't be deleted or have its license changed."""
+    if db.query(StorySeries.id).filter(StorySeries.source_id == source.id).first() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "source_managed_by_series",
+                "message": "Esta fonte pertence a uma série de IA e não pode ser excluída nem ter a licença alterada.",
+            },
+        )
 
 
 @router.post("", response_model=SourceRead, status_code=201)
@@ -54,6 +68,8 @@ def update_source(
 ) -> Source:
     source = get_owned_or_404(db, Source, source_id, scope)
     updates = payload.model_dump(exclude_unset=True)
+    if "license_type" in updates and updates["license_type"] != source.license_type:
+        _assert_not_series_source(db, source)
     if "default_channel_id" in updates:
         _check_default_channel_owner(db, updates["default_channel_id"], source.owner_id)
     for field, value in updates.items():
@@ -66,6 +82,7 @@ def update_source(
 @router.delete("/{source_id}", status_code=204, response_class=Response)
 def delete_source(source_id: uuid.UUID, db: Session = Depends(get_db), scope: Scope = Depends(get_scope)) -> Response:
     source = get_owned_or_404(db, Source, source_id, scope)
+    _assert_not_series_source(db, source)
     db.delete(source)
     db.commit()
     return Response(status_code=204)

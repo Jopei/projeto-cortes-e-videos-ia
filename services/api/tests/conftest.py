@@ -55,7 +55,7 @@ CREATE TABLE sources (
     valid_until TEXT,
     monetization_allowed INTEGER NOT NULL DEFAULT 0,
     attribution_text TEXT,
-    created_at TEXT
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 )
 """
 
@@ -98,6 +98,30 @@ from app.models.story import (  # noqa: E402
     StoryMediaJob,
     StorySeries,
 )
+
+# `Source.allowed_platforms`/`territories` are postgres ARRAY columns; the raw
+# sqlite DDL above stores them as TEXT (comma-joined, as `factories.insert_source`
+# writes). This test-only type lets the ORM write (e.g. the Series IA `Source`
+# created by the API) and read them back as lists on sqlite.
+from sqlalchemy.types import Text as _Text  # noqa: E402
+from sqlalchemy.types import TypeDecorator  # noqa: E402
+
+from app.models.source import Source  # noqa: E402
+
+
+class _CommaList(TypeDecorator):
+    impl = _Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        return ",".join(value) if value else ""
+
+    def process_result_value(self, value, dialect):
+        return [v for v in value.split(",") if v] if value else []
+
+
+Source.__table__.c.allowed_platforms.type = _CommaList()
+Source.__table__.c.territories.type = _CommaList()
 
 NEW_MODEL_TABLES = [
     Channel.__table__,

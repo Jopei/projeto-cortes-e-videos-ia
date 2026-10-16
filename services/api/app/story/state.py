@@ -68,8 +68,10 @@ EPISODE_TRANSITIONS: dict[E, frozenset[E]] = {
     E.PLANNED: frozenset({E.SCRIPTING}),
     E.SCRIPTING: frozenset({E.VALIDATING}),
     E.VALIDATING: frozenset({E.SCRIPT_READY, E.SCRIPTING, E.NEEDS_ATTENTION}),
-    E.SCRIPT_READY: frozenset({E.AWAITING_SCRIPT_APPROVAL, E.GENERATING_MEDIA}),
-    E.AWAITING_SCRIPT_APPROVAL: frozenset({E.GENERATING_MEDIA}),
+    # `validating`/`scripting` from the script-review stages = the user edited
+    # the script (PUT script) or asked for a new one (regenerate scope=script).
+    E.SCRIPT_READY: frozenset({E.AWAITING_SCRIPT_APPROVAL, E.GENERATING_MEDIA, E.VALIDATING, E.SCRIPTING}),
+    E.AWAITING_SCRIPT_APPROVAL: frozenset({E.GENERATING_MEDIA, E.VALIDATING, E.SCRIPTING}),
     # `scripting` from the media stages = re-script after a scene/narration failure.
     E.GENERATING_MEDIA: frozenset({E.ASSEMBLING, E.NEEDS_ATTENTION, E.SCRIPTING}),
     E.ASSEMBLING: frozenset({E.PENDING_REVIEW, E.NEEDS_ATTENTION, E.SCRIPTING}),
@@ -80,7 +82,7 @@ EPISODE_TRANSITIONS: dict[E, frozenset[E]] = {
     E.PUBLISHED: frozenset(),
     # Regenerate (script / media / narration) after reject or failure.
     E.REJECTED: frozenset({E.SCRIPTING, E.GENERATING_MEDIA}),
-    E.NEEDS_ATTENTION: frozenset({E.SCRIPTING, E.GENERATING_MEDIA}),
+    E.NEEDS_ATTENTION: frozenset({E.SCRIPTING, E.GENERATING_MEDIA, E.VALIDATING}),
     E.STALE: frozenset({E.SCRIPTING}),
     E.CANCELED: frozenset(),
 }
