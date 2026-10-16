@@ -13,7 +13,9 @@ from app.models.clip import Clip, ClipStatus
 from app.models.enums import Platform
 from app.models.platform_account import PlatformAccount
 from app.models.publication import Publication, PublicationStatus
+from app.models.story import StorySeries
 from app.quotas import assert_channel_quota
+from app.story.lifecycle import LIVE_SERIES_STATES
 from app.scope import Scope, get_owned_or_404, get_scope
 from app.schemas.channel import (
     ChannelCounts,
@@ -197,6 +199,22 @@ def delete_channel(
         raise HTTPException(
             status_code=409,
             detail="Channel has scheduled publications; cancel them before deleting the channel",
+        )
+
+    has_series = (
+        db.query(func.count())
+        .select_from(StorySeries)
+        .filter(StorySeries.channel_id == channel_id, StorySeries.status.in_(LIVE_SERIES_STATES))
+        .scalar()
+        or 0
+    )
+    if has_series:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "channel_has_active_series",
+                "message": "O canal tem séries ativas; cancele-as antes de excluir o canal.",
+            },
         )
 
     record_action(

@@ -58,6 +58,14 @@ class FakeS3Client:
             "ContentRange": f"bytes {start}-{end}/{total}",
         }
 
+    def put_object(self, Bucket: str, Key: str, Body: bytes, ContentType: str | None = None) -> dict:
+        self._objects[Key] = Body
+        return {}
+
+    def delete_object(self, Bucket: str, Key: str) -> dict:
+        self._objects.pop(Key, None)
+        return {}
+
     def head_object(self, Bucket: str, Key: str) -> dict:
         if Key not in self._objects:
             raise FakeClientError("404")
